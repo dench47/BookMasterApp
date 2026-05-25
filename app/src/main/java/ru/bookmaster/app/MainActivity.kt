@@ -70,4 +70,10 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        // При переходе по уведомлению — открываем главный экран
+        // (он и так откроется, т.к. проверка токена в onCreate)
+    }
 }
