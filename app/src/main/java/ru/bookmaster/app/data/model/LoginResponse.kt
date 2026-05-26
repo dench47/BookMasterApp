@@ -12,5 +12,10 @@ data class CompanyResponse(
     val phone: String?,
     val address: String?,
     val premium: Boolean?,
+    val premiumExpiry: String?,
+    val type: String?,
+    val maxServices: Int?,
+    val maxBookingDays: Int?,
+    val remindersEnabled: Boolean?,
     val createdAt: String?
 )

@@ -24,15 +24,24 @@ class TokenManager(private val context: Context) {
     val companyName: Flow<String?> = context.dataStore.data.map { it[COMPANY_NAME_KEY] }
     val companyId: Flow<Long?> = context.dataStore.data.map { it[COMPANY_ID_KEY] }
 
-    suspend fun saveAuthData(token: String, email: String, companyName: String, companyId: Long) {
+    suspend fun saveAuthData(token: String, email: String, companyName: String, companyId: Long,
+                             isPremium: Boolean = false, maxServices: Int? = null,
+                             maxBookingDays: Int? = null, remindersEnabled: Boolean = false) {
         context.dataStore.edit {
             it[TOKEN_KEY] = token
             it[EMAIL_KEY] = email
             it[COMPANY_NAME_KEY] = companyName
             it[COMPANY_ID_KEY] = companyId
         }
+        // Сохраняем Premium в SharedPreferences (проще)
+        val prefs = context.getSharedPreferences("premium_prefs", android.content.Context.MODE_PRIVATE)
+        prefs.edit()
+            .putBoolean("is_premium", isPremium)
+            .putInt("max_services", maxServices ?: 3)
+            .putInt("max_booking_days", maxBookingDays ?: 7)
+            .putBoolean("reminders_enabled", remindersEnabled)
+            .apply()
     }
-
     suspend fun clear() {
         context.dataStore.edit { it.clear() }
     }

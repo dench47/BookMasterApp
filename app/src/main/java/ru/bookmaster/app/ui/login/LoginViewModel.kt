@@ -1,6 +1,7 @@
 package ru.bookmaster.app.ui.login
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.messaging.FirebaseMessaging
@@ -11,6 +12,7 @@ import kotlinx.coroutines.tasks.await
 import ru.bookmaster.app.data.api.RetrofitClient
 import ru.bookmaster.app.data.model.LoginRequest
 import ru.bookmaster.app.util.TokenManager
+import androidx.core.content.edit
 
 data class LoginUiState(
     val email: String = "",
@@ -52,6 +54,14 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
                 if (response.isSuccessful) {
                     val body = response.body()!!
                     tokenManager.saveAuthData(body.token, body.company.email, body.company.name, body.company.id)
+                    // Сохраняем Premium-инфу
+                    val prefs = getApplication<Application>().getSharedPreferences("premium_prefs", Context.MODE_PRIVATE)
+                    prefs.edit {
+                        putBoolean("is_premium", body.company.premium == true)
+                            .putInt("max_services", body.company.maxServices ?: 3)
+                            .putInt("max_booking_days", body.company.maxBookingDays ?: 7)
+                            .putBoolean("reminders_enabled", body.company.remindersEnabled == true)
+                    }
                     _uiState.value = _uiState.value.copy(isLoading = false, isSuccess = true)
                     sendFcmToken(body.token)
                 } else {
