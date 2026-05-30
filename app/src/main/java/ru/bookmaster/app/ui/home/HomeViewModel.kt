@@ -105,4 +105,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             } catch (_: Exception) { }
         }
     }
+
+    fun onResume() {
+        loadData()
+    }
 }
