@@ -2,80 +2,122 @@ package ru.bookmaster.app.ui.login
 
 import android.app.Application
 import android.content.Context
+import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.messaging.FirebaseMessaging
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import ru.bookmaster.app.data.api.RetrofitClient
-import ru.bookmaster.app.data.model.LoginRequest
 import ru.bookmaster.app.util.TokenManager
-import androidx.core.content.edit
 
 data class LoginUiState(
-    val email: String = "",
-    val password: String = "",
+    val phone: String = "+7",
+    val callPhone: String = "",
     val isLoading: Boolean = false,
-    val error: String? = null,
-    val isSuccess: Boolean = false
+    val isCalling: Boolean = false,
+    val isSuccess: Boolean = false,
+    val error: String? = null
 )
 
 class LoginViewModel(application: Application) : AndroidViewModel(application) {
 
     private val tokenManager = TokenManager(application)
     private val api = RetrofitClient.instance
-
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState = _uiState.asStateFlow()
 
-    fun onEmailChange(email: String) {
-        _uiState.value = _uiState.value.copy(email = email, error = null)
-    }
-
-    fun onPasswordChange(password: String) {
-        _uiState.value = _uiState.value.copy(password = password, error = null)
+    fun onPhoneChange(phone: String) {
+        _uiState.value = _uiState.value.copy(phone = phone, error = null)
     }
 
     fun login() {
-        val state = _uiState.value
-
-        if (state.email.isBlank() || state.password.isBlank()) {
-            _uiState.value = state.copy(error = "Заполните все поля")
+        val phone = _uiState.value.phone.replace(Regex("[^0-9+]"), "")
+        if (phone.length < 10) {
+            _uiState.value = _uiState.value.copy(error = "Введите номер телефона")
             return
         }
 
         viewModelScope.launch {
-            _uiState.value = state.copy(isLoading = true, error = null)
-
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
-                val response = api.login(LoginRequest(state.email, state.password))
+                val response = api.requestCallCheck(mapOf("phone" to phone))
                 if (response.isSuccessful) {
-                    val body = response.body()!!
-                    tokenManager.saveAuthData(body.token, body.company.email, body.company.name, body.company.id)
-                    // Сохраняем Premium-инфу
-                    val prefs = getApplication<Application>().getSharedPreferences("premium_prefs", Context.MODE_PRIVATE)
-                    prefs.edit {
-                        putBoolean("is_premium", body.company.premium == true)
-                            .putInt("max_services", body.company.maxServices ?: 3)
-                            .putInt("max_booking_days", body.company.maxBookingDays ?: 7)
-                            .putBoolean("reminders_enabled", body.company.remindersEnabled == true)
+                    val body = response.body() ?: emptyMap()
+                    if (body["status"] == "ok") {
+                        if (body["already_verified"] == true) {
+                            // Уже верифицирован — пробуем войти
+                            loginByPhone(phone)
+                        } else {
+                            _uiState.value = _uiState.value.copy(
+                                isLoading = false,
+                                callPhone = body["call_phone"]?.toString() ?: "",
+                                isCalling = true
+                            )
+                            startAutoCheck(phone)
+                        }
+                    } else {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            error = body["message"]?.toString() ?: "Ошибка"
+                        )
                     }
-                    _uiState.value = _uiState.value.copy(isLoading = false, isSuccess = true)
-                    sendFcmToken(body.token)
-                } else {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = "Неверный email или пароль"
-                    )
                 }
             } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(isLoading = false, error = "Ошибка: ${e.message}")
+            }
+        }
+    }
+
+    private fun startAutoCheck(phone: String) {
+        viewModelScope.launch {
+            var attempts = 0
+            while (attempts < 40 && !_uiState.value.isSuccess) {
+                delay(3000)
+                attempts++
+                try {
+                    val response = api.checkCallStatus(mapOf("phone" to phone))
+                    if (response.isSuccessful) {
+                        val body = response.body() ?: emptyMap()
+                        if (body["verified"] == true) {
+                            loginByPhone(phone)
+                            return@launch
+                        }
+                    }
+                } catch (_: Exception) { }
+            }
+            if (!_uiState.value.isSuccess) {
                 _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = "Ошибка соединения: ${e.localizedMessage}"
+                    isCalling = false,
+                    error = "Время истекло. Попробуйте снова."
                 )
             }
+        }
+    }
+
+    private suspend fun loginByPhone(phone: String) {
+        try {
+            val response = api.loginByPhone(mapOf("phone" to phone))
+            if (response.isSuccessful) {
+                val body = response.body()!!
+                tokenManager.saveAuthData(body.token, body.company.email, body.company.name, body.company.id)
+                val prefs = getApplication<Application>().getSharedPreferences("premium_prefs", Context.MODE_PRIVATE)
+                prefs.edit {
+                    putBoolean("is_premium", body.company.premium == true)
+                        .putInt("max_services", body.company.maxServices ?: 3)
+                        .putInt("max_booking_days", body.company.maxBookingDays ?: 7)
+                        .putBoolean("reminders_enabled", body.company.remindersEnabled == true)
+                }
+                _uiState.value = _uiState.value.copy(isLoading = false, isSuccess = true)
+                sendFcmToken(body.token)
+            } else {
+                _uiState.value = _uiState.value.copy(isLoading = false, error = "Аккаунт не найден. Зарегистрируйтесь.")
+            }
+        } catch (e: Exception) {
+            _uiState.value = _uiState.value.copy(isLoading = false, error = "Ошибка: ${e.message}")
         }
     }
 
@@ -83,19 +125,10 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 val fcmToken = FirebaseMessaging.getInstance().token.await()
-                android.util.Log.d("FCM_TOKEN", "Token: $fcmToken")
                 if (fcmToken != null) {
-                    val api = RetrofitClient.instance
-                    val response = api.registerDeviceToken(
-                        mapOf("token" to fcmToken),
-                        "Bearer $authToken"
-                    )
-                    android.util.Log.d("FCM_TOKEN", "Server response: ${response.code()}")
-                } else {
-                    android.util.Log.d("FCM_TOKEN", "Token is null!")
+                    api.registerDeviceToken(mapOf("token" to fcmToken), "Bearer $authToken")
                 }
-            } catch (e: Exception) {
-                android.util.Log.e("FCM_TOKEN", "Error: ${e.message}", e)
-            }
+            } catch (_: Exception) { }
         }
-    }}
+    }
+}

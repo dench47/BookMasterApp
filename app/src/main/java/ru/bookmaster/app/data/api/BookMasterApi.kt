@@ -42,4 +42,15 @@ interface BookMasterApi {
     suspend fun registerDeviceToken(
         @Body body: Map<String, String>,
         @Header("Authorization") token: String
-    ): Response<Unit>}
+    ): Response<Unit>
+
+    @POST("api/verify/send")
+    suspend fun requestCallCheck(@Body body: Map<String, String>): Response<Map<String, Any>>
+
+    @POST("api/verify/check")
+    suspend fun checkCallStatus(@Body body: Map<String, String>): Response<Map<String, Any>>
+
+    @POST("api/auth/login-by-phone")
+    suspend fun loginByPhone(@Body body: Map<String, String>): Response<LoginResponse>
+
+}
