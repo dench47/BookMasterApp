@@ -6,7 +6,6 @@ import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.messaging.FirebaseMessaging
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -16,11 +15,10 @@ import ru.bookmaster.app.util.TokenManager
 
 data class LoginUiState(
     val phone: String = "+7",
-    val callPhone: String = "",
     val isLoading: Boolean = false,
-    val isCalling: Boolean = false,
     val isSuccess: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val shouldNavigateToRegister: Boolean = false
 )
 
 class LoginViewModel(application: Application) : AndroidViewModel(application) {
@@ -44,80 +42,34 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
-                val response = api.requestCallCheck(mapOf("phone" to phone))
+                val response = api.loginByPhone(mapOf("phone" to phone))
                 if (response.isSuccessful) {
-                    val body = response.body() ?: emptyMap()
-                    if (body["status"] == "ok") {
-                        if (body["already_verified"] == true) {
-                            // Уже верифицирован — пробуем войти
-                            loginByPhone(phone)
-                        } else {
-                            _uiState.value = _uiState.value.copy(
-                                isLoading = false,
-                                callPhone = body["call_phone"]?.toString() ?: "",
-                                isCalling = true
-                            )
-                            startAutoCheck(phone)
-                        }
-                    } else {
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            error = body["message"]?.toString() ?: "Ошибка"
-                        )
+                    val body = response.body()!!
+                    tokenManager.saveAuthData(body.token, body.company.email, body.company.name, body.company.id)
+                    val prefs = getApplication<Application>().getSharedPreferences("premium_prefs", Context.MODE_PRIVATE)
+                    prefs.edit {
+                        putBoolean("is_premium", body.company.premium == true)
+                            .putInt("max_services", body.company.maxServices ?: 3)
+                            .putInt("max_booking_days", body.company.maxBookingDays ?: 7)
+                            .putBoolean("reminders_enabled", body.company.remindersEnabled == true)
                     }
+                    _uiState.value = _uiState.value.copy(isLoading = false, isSuccess = true)
+                    sendFcmToken(body.token)
+                } else {
+                    // Салона нет — переход на регистрацию
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        shouldNavigateToRegister = true,
+                        phone = phone
+                    )
                 }
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(isLoading = false, error = "Ошибка: ${e.message}")
-            }
-        }
-    }
-
-    private fun startAutoCheck(phone: String) {
-        viewModelScope.launch {
-            var attempts = 0
-            while (attempts < 40 && !_uiState.value.isSuccess) {
-                delay(3000)
-                attempts++
-                try {
-                    val response = api.checkCallStatus(mapOf("phone" to phone))
-                    if (response.isSuccessful) {
-                        val body = response.body() ?: emptyMap()
-                        if (body["verified"] == true) {
-                            loginByPhone(phone)
-                            return@launch
-                        }
-                    }
-                } catch (_: Exception) { }
-            }
-            if (!_uiState.value.isSuccess) {
                 _uiState.value = _uiState.value.copy(
-                    isCalling = false,
-                    error = "Время истекло. Попробуйте снова."
+                    isLoading = false,
+                    shouldNavigateToRegister = true,
+                    phone = phone
                 )
             }
-        }
-    }
-
-    private suspend fun loginByPhone(phone: String) {
-        try {
-            val response = api.loginByPhone(mapOf("phone" to phone))
-            if (response.isSuccessful) {
-                val body = response.body()!!
-                tokenManager.saveAuthData(body.token, body.company.email, body.company.name, body.company.id)
-                val prefs = getApplication<Application>().getSharedPreferences("premium_prefs", Context.MODE_PRIVATE)
-                prefs.edit {
-                    putBoolean("is_premium", body.company.premium == true)
-                        .putInt("max_services", body.company.maxServices ?: 3)
-                        .putInt("max_booking_days", body.company.maxBookingDays ?: 7)
-                        .putBoolean("reminders_enabled", body.company.remindersEnabled == true)
-                }
-                _uiState.value = _uiState.value.copy(isLoading = false, isSuccess = true)
-                sendFcmToken(body.token)
-            } else {
-                _uiState.value = _uiState.value.copy(isLoading = false, error = "Аккаунт не найден. Зарегистрируйтесь.")
-            }
-        } catch (e: Exception) {
-            _uiState.value = _uiState.value.copy(isLoading = false, error = "Ошибка: ${e.message}")
         }
     }
 
