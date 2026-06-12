@@ -4,7 +4,8 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
     <application
         android:usesCleartextTraffic="true"
         android:allowBackup="true"
@@ -14,7 +15,6 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:label="BookMaster"
             android:launchMode="singleTop">
 
         <intent-filter>
