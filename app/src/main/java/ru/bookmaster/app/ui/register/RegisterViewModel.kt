@@ -93,13 +93,15 @@ class RegisterViewModel(application: Application) : AndroidViewModel(application
             while (attempts < 40 && !_uiState.value.isSuccess) {
                 delay(3000)
                 attempts++
+                // Если уже зарегистрировались - выходим
+                if (_uiState.value.isSuccess) return@launch
                 try {
-                    val response = api.checkCallStatus(mapOf("phone" to phone, "type" to "salon"))  // ← добавить type
+                    val response = api.checkCallStatus(mapOf("phone" to phone, "type" to "salon"))
                     if (response.isSuccessful) {
                         val body = response.body() ?: emptyMap()
                         if (body["verified"] == true) {
                             createCompany()
-                            return@launch
+                            return@launch  // ← Выходим после createCompany
                         }
                     }
                 } catch (_: Exception) { }
