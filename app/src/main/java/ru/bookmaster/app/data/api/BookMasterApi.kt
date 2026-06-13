@@ -80,4 +80,29 @@ interface BookMasterApi {
         @Body body: Map<String, String>,
         @Header("Authorization") token: String
     ): Response<Map<String, String>>
+
+    @GET("api/stats/{companyId}/today")
+    suspend fun getTodayStats(
+        @Path("companyId") companyId: Long,
+        @Header("Authorization") token: String
+    ): Response<Map<String, Any>>
+
+    @GET("api/stats/{companyId}/week")
+    suspend fun getWeekStats(
+        @Path("companyId") companyId: Long,
+        @Query("weekStart") weekStart: String?,
+        @Header("Authorization") token: String
+    ): Response<List<Map<String, Any>>>
+
+    @GET("api/stats/{companyId}/clients-stats")
+    suspend fun getClientsStats(
+        @Path("companyId") companyId: Long,
+        @Header("Authorization") token: String
+    ): Response<Map<String, Any>>
+
+    @GET("api/stats/{companyId}/masters-stats")
+    suspend fun getMastersStats(
+        @Path("companyId") companyId: Long,
+        @Header("Authorization") token: String
+    ): Response<Map<String, Any>>
 }

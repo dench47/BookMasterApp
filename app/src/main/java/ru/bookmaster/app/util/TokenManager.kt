@@ -17,23 +17,35 @@ class TokenManager(private val context: Context) {
         private val EMAIL_KEY = stringPreferencesKey("email")
         private val COMPANY_NAME_KEY = stringPreferencesKey("company_name")
         private val COMPANY_ID_KEY = longPreferencesKey("company_id")
+        private val COMPANY_TYPE_KEY = stringPreferencesKey("company_type")
+
     }
 
     val token: Flow<String?> = context.dataStore.data.map { it[TOKEN_KEY] }
     val email: Flow<String?> = context.dataStore.data.map { it[EMAIL_KEY] }
     val companyName: Flow<String?> = context.dataStore.data.map { it[COMPANY_NAME_KEY] }
     val companyId: Flow<Long?> = context.dataStore.data.map { it[COMPANY_ID_KEY] }
+    val companyType: Flow<String?> = context.dataStore.data.map { it[COMPANY_TYPE_KEY] }
 
-    suspend fun saveAuthData(token: String, email: String, companyName: String, companyId: Long,
-                             isPremium: Boolean = false, maxServices: Int? = null,
-                             maxBookingDays: Int? = null, remindersEnabled: Boolean = false) {
+
+    suspend fun saveAuthData(
+        token: String,
+        email: String,
+        companyName: String,
+        companyId: Long,
+        companyType: String = "salon",
+        isPremium: Boolean = false,
+        maxServices: Int? = null,
+        maxBookingDays: Int? = null,
+        remindersEnabled: Boolean = false
+    ) {
         context.dataStore.edit {
             it[TOKEN_KEY] = token
             it[EMAIL_KEY] = email
             it[COMPANY_NAME_KEY] = companyName
             it[COMPANY_ID_KEY] = companyId
+            it[COMPANY_TYPE_KEY] = companyType
         }
-        // Сохраняем Premium в SharedPreferences (проще)
         val prefs = context.getSharedPreferences("premium_prefs", android.content.Context.MODE_PRIVATE)
         prefs.edit()
             .putBoolean("is_premium", isPremium)
@@ -42,6 +54,7 @@ class TokenManager(private val context: Context) {
             .putBoolean("reminders_enabled", remindersEnabled)
             .apply()
     }
+
     suspend fun clear() {
         context.dataStore.edit { it.clear() }
     }

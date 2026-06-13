@@ -1,223 +1,255 @@
 package ru.bookmaster.app.ui.home
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
     onLogout: () -> Unit,
+    onNavigateToClients: () -> Unit,
+    onNavigateToMasters: () -> Unit,
+    onShareWebLink: () -> Unit,
     viewModel: HomeViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                viewModel.onResume()
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        uiState.companyName,
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = {}) {
+                        Icon(Icons.Default.Menu, contentDescription = "Меню")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { viewModel.refresh() }) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Обновить")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 85.dp)
+        ) {
+            TodayCard(
+                date = uiState.todayDate,
+                appointments = uiState.todayAppointments,
+                revenue = uiState.todayRevenue,
+                onFreeSlotsClick = { /* TODO */ },
+                onScheduleClick = { /* TODO */ }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            NotificationsCard(newEventsCount = 0)
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            WeekStatsCard(weekStats = uiState.weekStats)
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            ClientsCard(
+                totalClients = uiState.totalClients,
+                newClientsThisMonth = uiState.newClientsThisMonth,
+                sleepingClients = uiState.sleepingClients,
+                onViewClick = onNavigateToClients
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (!uiState.isMaster) {
+                MastersCard(
+                    totalMasters = uiState.totalMasters,
+                    activeMasters = uiState.activeMasters,
+                    onAddClick = onNavigateToMasters
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            WebBookingCard(
+                url = uiState.webBookingUrl,
+                onShareClick = onShareWebLink
+            )
+        }
+    }
+}
+
+@Composable
+fun TodayCard(
+    date: String,
+    appointments: Int,
+    revenue: String,
+    onFreeSlotsClick: () -> Unit,
+    onScheduleClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp), // ← зазор сверху
+        shape = RoundedCornerShape(16.dp), // ← скругление со всех сторон
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                date,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF38BDF8)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        "$appointments",
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Text("записей клиентов", color = Color(0xFF94A3B8), fontSize = 12.sp)
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        revenue,
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF86EFAC)
+                    )
+                    Text("выручка", color = Color(0xFF94A3B8), fontSize = 12.sp)
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onFreeSlotsClick,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("свободные окна")
+                }
+                OutlinedButton(
+                    onClick = onScheduleClick,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("расписание")
+                }
             }
         }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
+}
 
-    Column(modifier = modifier.fillMaxSize()) {
-        // Шапка с названием салона, статусом премиума и кнопкой обновить
+@Composable
+fun NotificationsCard(newEventsCount: Int) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A))
+    ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .background(MaterialTheme.colorScheme.surface)
-                .padding(start = 16.dp, end = 4.dp),
+            modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                uiState.companyName,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                modifier = Modifier.weight(1f)
-            )
-            Spacer(Modifier.width(6.dp))
-            Text(
-                if (uiState.isPremium) "👑" else "🆓",
-                style = MaterialTheme.typography.titleMedium
-            )
-            IconButton(onClick = { viewModel.loadData() }) {
-                Icon(
-                    Icons.Default.Refresh,
-                    contentDescription = "Обновить",
-                    tint = MaterialTheme.colorScheme.onSurface
-                )
-            }
+            Icon(Icons.Default.Notifications, tint = Color(0xFFFCD34D), contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("$newEventsCount новых событий", color = Color(0xFF94A3B8), fontSize = 14.sp)
         }
-        // Заголовок "Записи клиентов"
-        Text(
-            "Записи клиентов",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            textAlign = TextAlign.Center
-        )
+    }
+}
 
-        // Записи
-        if (uiState.isLoading) {
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentAlignment = Alignment.Center
-            ) { CircularProgressIndicator() }
-        } else if (uiState.error != null) {
-            Box(Modifier
-                .fillMaxWidth()
-                .weight(1f), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("❌", style = MaterialTheme.typography.headlineLarge)
-                    Spacer(Modifier.height(8.dp))
-                    Text(uiState.error!!, color = MaterialTheme.colorScheme.error)
-                    Spacer(Modifier.height(16.dp))
-                    OutlinedButton(onClick = { viewModel.loadData() }) { Text("Попробовать снова") }
-                }
-            }
-        } else if (uiState.appointments.isEmpty()) {
-            Box(Modifier
-                .fillMaxWidth()
-                .weight(1f), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("🙌", style = MaterialTheme.typography.headlineLarge)
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Записей пока нет",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    OutlinedButton(onClick = { viewModel.loadData() }) { Text("Обновить") }
-                }
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+@Composable
+fun WeekStatsCard(weekStats: List<WeekDayStat>) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                items(uiState.appointments) { appointment ->
-                    Card(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = when {
-                                appointment.cancelled == true -> MaterialTheme.colorScheme.errorContainer.copy(
-                                    alpha = 0.3f
-                                )
+                Text("Записи на неделе", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("${weekStats.sumOf { it.appointments }} записей", color = Color(0xFF38BDF8))
+            }
+            Spacer(modifier = Modifier.height(12.dp))
 
-                                appointment.confirmed == true -> Color(0xFF14532D).copy(alpha = 0.3f)
-                                else -> MaterialTheme.colorScheme.surface
-                            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                weekStats.forEach { day ->
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            day.dayOfWeekShort,
+                            color = Color(0xFF94A3B8),
+                            fontSize = 12.sp
                         )
-                    ) {
-                        Column(Modifier.padding(16.dp)) {
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    appointment.clientName,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    appointment.startTime.substring(11, 16),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            Spacer(Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (day.appointments > 0) Color(0xFF38BDF8).copy(alpha = 0.2f)
+                                    else Color.Transparent
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
                             Text(
-                                "📞 ${appointment.clientPhone}",
-                                style = MaterialTheme.typography.bodySmall
+                                day.date.split("-").last(),
+                                color = if (day.appointments > 0) Color(0xFF38BDF8) else Color.White,
+                                fontWeight = if (day.appointments > 0) FontWeight.Bold else FontWeight.Normal
                             )
-                            Text(
-                                "💇 ${appointment.serviceName} • 👤 ${appointment.masterName}",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                            Text(
-                                "📅 ${formatDate(appointment.startTime)}",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                when {
-                                    appointment.cancelled == true -> "❌ Отменена"
-                                    appointment.confirmed == true -> "✅ Подтверждена"
-                                    else -> "⏳ Ожидает"
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = when {
-                                    appointment.cancelled == true -> MaterialTheme.colorScheme.error
-                                    appointment.confirmed == true -> Color(0xFF86EFAC)
-                                    else -> Color(0xFFFCD34D)
-                                }
-                            )
-                            if (appointment.cancelled != true && appointment.confirmed != true) {
-                                Spacer(Modifier.height(8.dp))
-                                Row(
-                                    Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    OutlinedButton(
-                                        onClick = { viewModel.confirmAppointment(appointment.id) },
-                                        modifier = Modifier.weight(1f),
-                                        colors = ButtonDefaults.outlinedButtonColors(
-                                            contentColor = Color(
-                                                0xFF86EFAC
-                                            )
-                                        )
-                                    ) { Text("✓ Подтвердить") }
-                                    OutlinedButton(
-                                        onClick = { viewModel.cancelAppointment(appointment.id) },
-                                        modifier = Modifier.weight(1f),
-                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                                    ) { Text("✕ Отменить") }
-                                }
-                            }
                         }
+                        Text(
+                            "${day.appointments}",
+                            color = Color(0xFF86EFAC),
+                            fontSize = 12.sp
+                        )
                     }
                 }
             }
@@ -225,7 +257,93 @@ fun HomeScreen(
     }
 }
 
-private fun formatDate(dateTime: String): String {
-    val parts = dateTime.take(10).split("-")
-    return "${parts[2]}.${parts[1]}.${parts[0]}"
+@Composable
+fun ClientsCard(
+    totalClients: Int,
+    newClientsThisMonth: Int,
+    sleepingClients: Int,
+    onViewClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onViewClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("$totalClients клиент(ов) в базе", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("Смотреть →", color = Color(0xFF38BDF8), fontSize = 14.sp)
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Column {
+                    Text("$newClientsThisMonth", color = Color(0xFF86EFAC), fontWeight = FontWeight.Bold)
+                    Text("новых", color = Color(0xFF94A3B8), fontSize = 12.sp)
+                }
+                Column {
+                    Text("$sleepingClients", color = Color(0xFFFCD34D), fontWeight = FontWeight.Bold)
+                    Text("спящих", color = Color(0xFF94A3B8), fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MastersCard(
+    totalMasters: Int,
+    activeMasters: Int,
+    onAddClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onAddClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("$totalMasters сотрудник(ов)", color = Color.White, fontWeight = FontWeight.Bold)
+                Text("Добавить →", color = Color(0xFF38BDF8), fontSize = 14.sp)
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Активных: $activeMasters", color = Color(0xFF86EFAC), fontSize = 14.sp)
+        }
+    }
+}
+
+@Composable
+fun WebBookingCard(url: String, onShareClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Ваша веб-страничка записи!", color = Color.White, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(url, color = Color(0xFF38BDF8), fontSize = 12.sp, maxLines = 1)
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(
+                onClick = onShareClick,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF38BDF8)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("поделиться", color = Color(0xFF0F172A))
+            }
+        }
+    }
 }

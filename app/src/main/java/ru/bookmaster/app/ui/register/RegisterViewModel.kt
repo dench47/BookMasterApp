@@ -131,7 +131,17 @@ class RegisterViewModel(application: Application) : AndroidViewModel(application
                 )
                 if (response.isSuccessful) {
                     val body = response.body()!!
-                    tokenManager.saveAuthData(body.token, body.company.email, body.company.name, body.company.id)
+                    tokenManager.saveAuthData(
+                        token = body.token,
+                        email = body.company.email,
+                        companyName = body.company.name,
+                        companyId = body.company.id,
+                        companyType = state.type,  // ← добавить эту строку
+                        isPremium = body.company.premium == true,
+                        maxServices = body.company.maxServices ?: 3,
+                        maxBookingDays = body.company.maxBookingDays ?: 7,
+                        remindersEnabled = body.company.remindersEnabled == true
+                    )
                     val prefs = getApplication<Application>().getSharedPreferences("premium_prefs", Context.MODE_PRIVATE)
                     prefs.edit {
                         putBoolean("is_premium", body.company.premium == true)
@@ -163,7 +173,17 @@ class RegisterViewModel(application: Application) : AndroidViewModel(application
             val response = api.loginByPhone(mapOf("phone" to phone))
             if (response.isSuccessful) {
                 val body = response.body()!!
-                tokenManager.saveAuthData(body.token, body.company.email, body.company.name, body.company.id)
+                tokenManager.saveAuthData(
+                    token = body.token,
+                    email = body.company.email,
+                    companyName = body.company.name,
+                    companyId = body.company.id,
+                    companyType = body.company.type ?: "salon",  // ← добавить ?: "salon"
+                    isPremium = body.company.premium == true,
+                    maxServices = body.company.maxServices ?: 3,
+                    maxBookingDays = body.company.maxBookingDays ?: 7,
+                    remindersEnabled = body.company.remindersEnabled == true
+                )
                 val prefs = getApplication<Application>().getSharedPreferences("premium_prefs", Context.MODE_PRIVATE)
                 prefs.edit {
                     putBoolean("is_premium", body.company.premium == true)

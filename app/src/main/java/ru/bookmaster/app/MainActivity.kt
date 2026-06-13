@@ -179,7 +179,16 @@ fun MainScreen(
         when (selectedTab) {
             0 -> HomeScreen(
                 modifier = Modifier.padding(paddingValues),
-                onLogout = onLogout
+                onLogout = onLogout,
+                onNavigateToClients = {
+                    onTabSelected(1)  // переключаем на вкладку Клиенты
+                },
+                onNavigateToMasters = {
+                    // пока нет экрана мастеров, можно переключить на другую вкладку или открыть диалог
+                },
+                onShareWebLink = {
+                    // TODO: поделиться ссылкой
+                }
             )
             1 -> ClientsScreen(
                 modifier = Modifier.padding(paddingValues),
