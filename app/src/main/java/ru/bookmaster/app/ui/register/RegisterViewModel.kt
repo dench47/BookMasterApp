@@ -60,15 +60,13 @@ class RegisterViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
-                val response = api.requestCallCheck(mapOf("phone" to phone, "type" to "salon"))
+                val response = api.requestCallCheck(mapOf("phone" to phone, "type" to "salon"))  // ← добавить type
                 if (response.isSuccessful) {
                     val body = response.body() ?: emptyMap()
                     if (body["status"] == "ok") {
                         if (body["already_verified"] == true) {
-                            // Салон уже существует — просто входим
                             loginByPhone(phone)
                         } else {
-                            // Показываем экран звонка
                             _uiState.value = _uiState.value.copy(
                                 isLoading = false,
                                 isCalling = true,
@@ -96,11 +94,10 @@ class RegisterViewModel(application: Application) : AndroidViewModel(application
                 delay(3000)
                 attempts++
                 try {
-                    val response = api.checkCallStatus(mapOf("phone" to phone))
+                    val response = api.checkCallStatus(mapOf("phone" to phone, "type" to "salon"))  // ← добавить type
                     if (response.isSuccessful) {
                         val body = response.body() ?: emptyMap()
                         if (body["verified"] == true) {
-                            // Верификация успешна — создаём салон
                             createCompany()
                             return@launch
                         }
