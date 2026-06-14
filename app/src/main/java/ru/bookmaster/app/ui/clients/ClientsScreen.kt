@@ -14,6 +14,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -34,7 +36,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ru.bookmaster.app.data.model.Client
 
@@ -117,13 +121,29 @@ fun ClientsScreen(
                 CircularProgressIndicator()
             }
         } else if (uiState.error != null) {
-            Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("❌ ${uiState.error}", color = MaterialTheme.colorScheme.error)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedButton(onClick = { viewModel.loadClients() }) { Text("Повторить") }
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text("❌", fontSize = 48.sp)
+                    Text(
+                        uiState.error ?: "Сервер недоступен",
+                        color = Color(0xFFFCA5A5),
+                        textAlign = TextAlign.Center
+                    )
+                    Button(
+                        onClick = { viewModel.loadClients() },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF38BDF8))
+                    ) {
+                        Text("Повторить")
+                    }
                 }
             }
+            return
         } else if (uiState.clients.isEmpty()) {
             Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                 Text("Клиентов пока нет", color = MaterialTheme.colorScheme.onSurfaceVariant)

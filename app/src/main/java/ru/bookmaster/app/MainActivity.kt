@@ -178,8 +178,6 @@ fun MainScreen(
     ) { paddingValues ->
         when (selectedTab) {
             0 -> HomeScreen(
-                modifier = Modifier.padding(paddingValues),
-                onLogout = onLogout,
                 onNavigateToClients = {
                     onTabSelected(1)  // переключаем на вкладку Клиенты
                 },

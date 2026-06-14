@@ -1,15 +1,20 @@
 package ru.bookmaster.app.ui.home
 
+import android.annotation.SuppressLint
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import ru.bookmaster.app.data.api.RetrofitClient
 import ru.bookmaster.app.util.TokenManager
+import java.net.HttpURLConnection
+import java.net.URL
 import java.time.LocalDate
 
 data class HomeUiState(
@@ -32,9 +37,9 @@ data class HomeUiState(
     // Premium
     val isPremium: Boolean = false,
     val webBookingUrl: String = "",
-    val isMaster: Boolean = false
-
-
+    val isMaster: Boolean = false,
+    val isServerError: Boolean = false,
+    val serverErrorMessage: String? = null
 )
 
 data class WeekDayStat(
@@ -51,16 +56,19 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val api = RetrofitClient.instance
     private val prefs = application.getSharedPreferences("premium_prefs", android.content.Context.MODE_PRIVATE)
 
+    private var retryJob: Job? = null
+
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState = _uiState.asStateFlow()
 
     init {
         loadAllData()
+        startRetryOnConnection()
     }
 
     fun loadAllData() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null, isServerError = false)
             try {
                 val token = tokenManager.token.first() ?: ""
                 val companyId = tokenManager.companyId.first() ?: 0L
@@ -68,43 +76,96 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 val companyName = tokenManager.companyName.first() ?: ""
                 val isPremium = prefs.getBoolean("is_premium", false)
 
-                // Параллельно загружаем все данные
-                val todayDeferred = async { api.getTodayStats(companyId, "Bearer $token") }
-                val weekDeferred = async { api.getWeekStats(companyId, getWeekStart(), "Bearer $token") }
-                val clientsStatsDeferred = async { api.getClientsStats(companyId, "Bearer $token") }
-                val mastersStatsDeferred = async { api.getMastersStats(companyId, "Bearer $token") }
+                // Параллельно загружаем все данные с обработкой ошибок внутри каждого запроса
+                val todayDeferred = async {
+                    try {
+                        api.getTodayStats(companyId, "Bearer $token")
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+                val weekDeferred = async {
+                    try {
+                        api.getWeekStats(companyId, getWeekStart(), "Bearer $token")
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+                val clientsStatsDeferred = async {
+                    try {
+                        api.getClientsStats(companyId, "Bearer $token")
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+                val mastersStatsDeferred = async {
+                    try {
+                        api.getMastersStats(companyId, "Bearer $token")
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
 
                 val todayResponse = todayDeferred.await()
                 val weekResponse = weekDeferred.await()
                 val clientsStatsResponse = clientsStatsDeferred.await()
                 val mastersStatsResponse = mastersStatsDeferred.await()
 
-                val todayData = if (todayResponse.isSuccessful) todayResponse.body() else emptyMap()
-                val weekData = if (weekResponse.isSuccessful) weekResponse.body() else emptyList<Map<String, Any>>()
-                val clientsData = if (clientsStatsResponse.isSuccessful) clientsStatsResponse.body() else emptyMap()
-                val mastersData = if (mastersStatsResponse.isSuccessful) mastersStatsResponse.body() else emptyMap()
+                // Если все запросы вернули null - сервер недоступен
+                if (todayResponse == null && weekResponse == null && clientsStatsResponse == null && mastersStatsResponse == null) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        isServerError = true,
+                        serverErrorMessage = "Сервер недоступен. Проверьте подключение к интернету."
+                    )
+                    return@launch
+                }
+
+                val todayData = todayResponse?.body() ?: emptyMap()
+                val weekData = weekResponse?.body() ?: emptyList<Map<String, Any>>()
+                val clientsData = clientsStatsResponse?.body() ?: emptyMap()
+                val mastersData = mastersStatsResponse?.body() ?: emptyMap()
 
                 _uiState.value = HomeUiState(
                     companyName = companyName,
                     isLoading = false,
-                    todayDate = todayData?.get("dayOfWeek") as? String ?: "",
-                    todayAppointments = (todayData?.get("totalAppointments") as? Number)?.toInt() ?: 0,
-                    todayRevenue = formatRevenue((todayData?.get("totalRevenue") as? Number)?.toDouble() ?: 0.0),
+                    todayDate = todayData["dayOfWeek"] as? String ?: "",
+                    todayAppointments = (todayData["totalAppointments"] as? Number)?.toInt() ?: 0,
+                    todayRevenue = formatRevenue((todayData["totalRevenue"] as? Number)?.toDouble() ?: 0.0),
                     weekStats = parseWeekStats(weekData),
-                    totalClients = (clientsData?.get("totalClients") as? Number)?.toInt() ?: 0,
-                    newClientsThisMonth = (clientsData?.get("newClientsThisMonth") as? Number)?.toInt() ?: 0,
-                    sleepingClients = (clientsData?.get("sleepingClients") as? Number)?.toInt() ?: 0,
-                    totalMasters = (mastersData?.get("totalMasters") as? Number)?.toInt() ?: 0,
-                    activeMasters = (mastersData?.get("activeMasters") as? Number)?.toInt() ?: 0,
+                    totalClients = (clientsData["totalClients"] as? Number)?.toInt() ?: 0,
+                    newClientsThisMonth = (clientsData["newClientsThisMonth"] as? Number)?.toInt() ?: 0,
+                    sleepingClients = (clientsData["sleepingClients"] as? Number)?.toInt() ?: 0,
+                    totalMasters = (mastersData["totalMasters"] as? Number)?.toInt() ?: 0,
+                    activeMasters = (mastersData["activeMasters"] as? Number)?.toInt() ?: 0,
                     isPremium = isPremium,
                     webBookingUrl = "http://your-server.com/salon/$companyId",
                     isMaster = companyType == "master"
-
                 )
-            } catch (e: Exception) {
+            } catch (e: java.net.SocketTimeoutException) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = e.localizedMessage ?: "Ошибка загрузки"
+                    isServerError = true,
+                    serverErrorMessage = "Сервер не отвечает. Проверьте подключение."
+                )
+            } catch (e: java.net.ConnectException) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    isServerError = true,
+                    serverErrorMessage = "Нет связи с сервером. Проверьте интернет."
+                )
+            } catch (e: java.net.UnknownHostException) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    isServerError = true,
+                    serverErrorMessage = "Не удалось найти сервер. Проверьте подключение."
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    isServerError = true,
+                    serverErrorMessage = "Ошибка соединения. Попробуйте позже."
                 )
             }
         }
@@ -133,11 +194,38 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    @SuppressLint("DefaultLocale")
     private fun formatRevenue(amount: Double): String {
         return String.format("%.0f ₽", amount)
     }
 
     fun refresh() {
         loadAllData()
+    }
+
+    private fun startRetryOnConnection() {
+        retryJob?.cancel()
+        retryJob = viewModelScope.launch {
+            while (true) {
+                delay(30000)
+                if (!isConnected()) continue
+                if (_uiState.value.isServerError) {
+                    loadAllData()
+                }
+            }
+        }
+    }
+
+    private fun isConnected(): Boolean {
+        return try {
+            val baseUrl = RetrofitClient.BASE_URL
+            val url = URL("$baseUrl/actuator/health")
+            val connection = url.openConnection() as HttpURLConnection
+            connection.connectTimeout = 3000
+            connection.connect()
+            connection.responseCode == 200
+        } catch (e: Exception) {
+            false
+        }
     }
 }

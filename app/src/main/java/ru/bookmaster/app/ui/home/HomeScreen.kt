@@ -24,14 +24,38 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    modifier: Modifier = Modifier,
-    onLogout: () -> Unit,
     onNavigateToClients: () -> Unit,
     onNavigateToMasters: () -> Unit,
     onShareWebLink: () -> Unit,
     viewModel: HomeViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    if (uiState.isServerError) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text("⚠️", fontSize = 48.sp)
+                Text(
+                    uiState.serverErrorMessage ?: "Сервер недоступен",
+                    color = Color(0xFFFCA5A5),
+                    textAlign = TextAlign.Center
+                )
+                Button(
+                    onClick = { viewModel.refresh() },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF38BDF8))
+                ) {
+                    Text("Повторить")
+                }
+            }
+        }
+        return
+    }
 
     Scaffold(
         topBar = {
@@ -82,7 +106,10 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            WeekStatsCard(weekStats = uiState.weekStats)
+            WeekStatsCard(
+                weekStats = uiState.weekStats,
+                totalWeekAppointments = uiState.weekStats.sumOf { it.appointments }
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -123,8 +150,8 @@ fun TodayCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 12.dp), // ← зазор сверху
-        shape = RoundedCornerShape(16.dp), // ← скругление со всех сторон
+            .padding(top = 12.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -201,7 +228,12 @@ fun NotificationsCard(newEventsCount: Int) {
 }
 
 @Composable
-fun WeekStatsCard(weekStats: List<WeekDayStat>) {
+fun WeekStatsCard(
+    weekStats: List<WeekDayStat>,
+    totalWeekAppointments: Int
+) {
+    if (weekStats.isEmpty()) return
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -213,7 +245,7 @@ fun WeekStatsCard(weekStats: List<WeekDayStat>) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text("Записи на неделе", color = Color.White, fontWeight = FontWeight.Bold)
-                Text("${weekStats.sumOf { it.appointments }} записей", color = Color(0xFF38BDF8))
+                Text("$totalWeekAppointments записей", color = Color(0xFF38BDF8))
             }
             Spacer(modifier = Modifier.height(12.dp))
 

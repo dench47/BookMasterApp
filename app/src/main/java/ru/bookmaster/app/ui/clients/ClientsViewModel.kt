@@ -22,7 +22,9 @@ data class ClientsUiState(
     val totalPages: Int = 0,
     val sortBy: String = "name",
     val sortDir: String = "asc",
-    val hasMore: Boolean = false
+    val hasMore: Boolean = false,
+    val isServerError: Boolean = false
+
 )
 
 class ClientsViewModel(application: Application) : AndroidViewModel(application) {
@@ -38,7 +40,7 @@ class ClientsViewModel(application: Application) : AndroidViewModel(application)
     fun loadClients(reset: Boolean = true) {
         viewModelScope.launch {
             if (reset) {
-                _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+                _uiState.value = _uiState.value.copy(isLoading = true, error = null, isServerError = false)
             }
             try {
                 val token = tokenManager.token.first() ?: ""
@@ -60,6 +62,7 @@ class ClientsViewModel(application: Application) : AndroidViewModel(application)
                         isLoading = false,
                         isLoadingMore = false,
                         error = null,
+                        isServerError = false,
                         isPremium = data.isPremium,
                         total = data.total,
                         currentPage = data.page,
@@ -70,19 +73,34 @@ class ClientsViewModel(application: Application) : AndroidViewModel(application)
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         isLoadingMore = false,
-                        error = "Ошибка: ${response.code()}"
+                        isServerError = true,
+                        error = "Ошибка загрузки: ${response.code()}"
                     )
                 }
-            } catch (e: Exception) {
+            } catch (_: java.net.SocketTimeoutException) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     isLoadingMore = false,
-                    error = e.localizedMessage ?: "Неизвестная ошибка"
+                    isServerError = true,
+                    error = "Сервер не отвечает. Проверьте подключение."
+                )
+            } catch (_: java.net.ConnectException) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    isLoadingMore = false,
+                    isServerError = true,
+                    error = "Нет связи с сервером. Проверьте интернет."
+                )
+            } catch (_: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    isLoadingMore = false,
+                    isServerError = true,
+                    error = "Ошибка соединения. Попробуйте позже."
                 )
             }
         }
     }
-
     fun loadMore() {
         if (_uiState.value.hasMore && !_uiState.value.isLoadingMore) {
             _uiState.value = _uiState.value.copy(isLoadingMore = true)
