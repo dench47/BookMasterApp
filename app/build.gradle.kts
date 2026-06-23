@@ -48,6 +48,9 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended:1.7.5")
 
+    // Compose Foundation (для KeyboardOptions)
+    implementation("androidx.compose.foundation:foundation:1.7.5")
+
     // Core
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
@@ -70,6 +73,8 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation(libs.androidx.remote.creation.core)
+    implementation(libs.androidx.foundation)
+    implementation(libs.androidx.material3)
 
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")

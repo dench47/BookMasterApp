@@ -2,6 +2,9 @@ package ru.bookmaster.app.data.api
 
 import retrofit2.Response
 import retrofit2.http.Body
+import retrofit2.http.DELETE
+import retrofit2.http.Field
+import retrofit2.http.FormUrlEncoded
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
@@ -14,6 +17,7 @@ import ru.bookmaster.app.data.model.ClientsResponse
 import ru.bookmaster.app.data.model.LoginRequest
 import ru.bookmaster.app.data.model.LoginResponse
 import ru.bookmaster.app.data.model.RegisterRequest
+import ru.bookmaster.app.data.model.ServiceModel
 
 interface BookMasterApi {
 
@@ -117,4 +121,28 @@ interface BookMasterApi {
         @Path("companyId") companyId: Long,
         @Header("Authorization") token: String
     ): Response<Map<String, Any>>
+
+    @GET("api/services/company/{companyId}")
+    suspend fun getServices(
+        @Path("companyId") companyId: Long,
+        @Header("Authorization") token: String
+    ): Response<List<ServiceModel>>
+
+    @POST("api/services")
+    suspend fun addService(
+        @Body body: Map<String, Any>,
+        @Header("Authorization") token: String
+    ): Response<ServiceModel>
+
+    @POST("api/services/{id}/toggle-active")
+    suspend fun toggleServiceActive(
+        @Path("id") id: Long,
+        @Header("Authorization") token: String
+    ): Response<Map<String, Any>>
+
+    @DELETE("api/services/{id}")
+    suspend fun deleteService(
+        @Path("id") id: Long,
+        @Header("Authorization") token: String
+    ): Response<Unit>
 }

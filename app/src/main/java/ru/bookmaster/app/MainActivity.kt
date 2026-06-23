@@ -42,6 +42,7 @@ import ru.bookmaster.app.ui.login.LoginScreen
 import ru.bookmaster.app.ui.register.RegisterScreen
 import ru.bookmaster.app.ui.theme.BookMasterTheme
 import ru.bookmaster.app.util.TokenManager
+import ru.bookmaster.app.ui.services.ServicesScreen
 
 class MainActivity : ComponentActivity() {
 
@@ -87,6 +88,12 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
+                    composable("services") {
+                        ServicesScreen(
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+
                     composable(
                         "register?phone={phone}",
                         arguments = listOf(navArgument("phone") { defaultValue = "" })
@@ -117,10 +124,12 @@ class MainActivity : ComponentActivity() {
                             },
                             onNavigateToClientDetail = { clientId ->
                                 navController.navigate("client_detail/$clientId")
+                            },
+                            onNavigateToServices = {
+                                navController.navigate("services")
                             }
                         )
                     }
-
                     composable(
                         "client_detail/{clientId}",
                         arguments = listOf(navArgument("clientId") { type = NavType.LongType })
@@ -142,7 +151,9 @@ fun MainScreen(
     selectedTab: Int,
     onTabSelected: (Int) -> Unit,
     onLogout: () -> Unit,
-    onNavigateToClientDetail: (Long) -> Unit
+    onNavigateToClientDetail: (Long) -> Unit,
+    onNavigateToServices: () -> Unit  // ← добавить
+
 ) {
     Scaffold(
         bottomBar = {
@@ -189,6 +200,7 @@ fun MainScreen(
                 onLogout = onLogout,
                 onNavigateToClients = { onTabSelected(1) },
                 onNavigateToMasters = { /* TODO */ },
+                onNavigateToServices = onNavigateToServices,  // ← добавить
                 onShareWebLink = { /* TODO */ }
             )
         }

@@ -28,6 +28,7 @@ fun CabinetScreen(
     onLogout: () -> Unit,
     onNavigateToClients: () -> Unit,
     onNavigateToMasters: () -> Unit,
+    onNavigateToServices: () -> Unit,
     onShareWebLink: () -> Unit,
     viewModel: CabinetViewModel = viewModel()
 ) {
@@ -61,7 +62,9 @@ fun CabinetScreen(
         ) {
             // Блок 1: Название салона + информация
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
             ) {
@@ -124,7 +127,7 @@ fun CabinetScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { /* TODO: открыть услуги */ },
+                    .clickable { onNavigateToServices() },
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
             ) {
