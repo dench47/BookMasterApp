@@ -105,4 +105,16 @@ interface BookMasterApi {
         @Path("companyId") companyId: Long,
         @Header("Authorization") token: String
     ): Response<Map<String, Any>>
+
+    @GET("api/companies/{id}")
+    suspend fun getCompany(
+        @Path("id") id: Long,
+        @Header("Authorization") token: String
+    ): Response<Map<String, Any>>
+
+    @GET("api/stats/{companyId}")
+    suspend fun getStats(
+        @Path("companyId") companyId: Long,
+        @Header("Authorization") token: String
+    ): Response<Map<String, Any>>
 }

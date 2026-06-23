@@ -8,19 +8,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.People
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -30,9 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavType
@@ -43,6 +34,7 @@ import androidx.navigation.navArgument
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import ru.bookmaster.app.ui.cabinet.CabinetScreen
 import ru.bookmaster.app.ui.clients.ClientDetailScreen
 import ru.bookmaster.app.ui.clients.ClientsScreen
 import ru.bookmaster.app.ui.home.HomeScreen
@@ -170,8 +162,8 @@ fun MainScreen(
                 NavigationBarItem(
                     selected = selectedTab == 2,
                     onClick = { onTabSelected(2) },
-                    icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Профиль") },
-                    label = { Text("Профиль") }
+                    icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Кабинет") },
+                    label = { Text("Кабинет") }
                 )
             }
         }
@@ -179,45 +171,26 @@ fun MainScreen(
         when (selectedTab) {
             0 -> HomeScreen(
                 onNavigateToClients = {
-                    onTabSelected(1)  // переключаем на вкладку Клиенты
+                    onTabSelected(1)
                 },
                 onNavigateToMasters = {
-                    // пока нет экрана мастеров, можно переключить на другую вкладку или открыть диалог
+                    // TODO
                 },
                 onShareWebLink = {
-                    // TODO: поделиться ссылкой
+                    // TODO
                 }
             )
             1 -> ClientsScreen(
                 modifier = Modifier.padding(paddingValues),
                 onNavigateToDetail = onNavigateToClientDetail
             )
-            2 -> ProfileScreen(
+            2 -> CabinetScreen(
                 modifier = Modifier.padding(paddingValues),
-                onLogout = onLogout
+                onLogout = onLogout,
+                onNavigateToClients = { onTabSelected(1) },
+                onNavigateToMasters = { /* TODO */ },
+                onShareWebLink = { /* TODO */ }
             )
-        }
-    }
-}
-
-@Composable
-fun ProfileScreen(modifier: Modifier = Modifier, onLogout: () -> Unit) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Spacer(modifier = Modifier.height(32.dp))
-        Text("👤 Профиль", style = MaterialTheme.typography.headlineSmall)
-        Spacer(modifier = Modifier.height(16.dp))
-        Text("BookMaster для салонов", style = MaterialTheme.typography.bodyMedium)
-        Spacer(modifier = Modifier.height(32.dp))
-        Button(
-            onClick = onLogout,
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-        ) {
-            Text("Выйти")
         }
     }
 }

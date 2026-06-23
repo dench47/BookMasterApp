@@ -1,16 +1,12 @@
-
 package ru.bookmaster.app.ui.home
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Help
-import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.*
@@ -90,7 +86,6 @@ fun HomeScreen(
                 )
                 HorizontalDivider(color = Color(0xFF334155))
 
-                // Расписание
                 NavigationDrawerItem(
                     label = { Text("Расписание", color = Color.White) },
                     icon = { Icon(Icons.Default.DateRange, contentDescription = null, tint = Color(0xFF38BDF8)) },
@@ -104,7 +99,6 @@ fun HomeScreen(
                     )
                 )
 
-                // Сообщения
                 NavigationDrawerItem(
                     label = { Text("Сообщения", color = Color.White) },
                     icon = { Icon(Icons.AutoMirrored.Filled.Message, contentDescription = null, tint = Color(0xFF38BDF8)) },
@@ -118,7 +112,6 @@ fun HomeScreen(
                     )
                 )
 
-                // Уведомления клиентам
                 NavigationDrawerItem(
                     label = { Text("Уведомления клиентам", color = Color.White) },
                     icon = { Icon(Icons.Default.Notifications, contentDescription = null, tint = Color(0xFF38BDF8)) },
@@ -132,7 +125,6 @@ fun HomeScreen(
                     )
                 )
 
-                // Клиенты
                 NavigationDrawerItem(
                     label = { Text("Клиенты", color = Color.White) },
                     icon = { Icon(Icons.Default.People, contentDescription = null, tint = Color(0xFF38BDF8)) },
@@ -146,7 +138,6 @@ fun HomeScreen(
                     )
                 )
 
-                // Сотрудники
                 if (!uiState.isMaster) {
                     NavigationDrawerItem(
                         label = { Text("Сотрудники", color = Color.White) },
@@ -162,7 +153,6 @@ fun HomeScreen(
                     )
                 }
 
-                // Финансы и статистика
                 NavigationDrawerItem(
                     label = { Text("Финансы и статистика", color = Color.White) },
                     icon = { Icon(Icons.AutoMirrored.Filled.ShowChart, contentDescription = null, tint = Color(0xFF38BDF8)) },
@@ -176,7 +166,6 @@ fun HomeScreen(
                     )
                 )
 
-                // Расходы
                 NavigationDrawerItem(
                     label = { Text("Расходы", color = Color.White) },
                     icon = { Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = Color(0xFF38BDF8)) },
@@ -190,7 +179,6 @@ fun HomeScreen(
                     )
                 )
 
-                // Галерея
                 NavigationDrawerItem(
                     label = { Text("Галерея", color = Color.White) },
                     icon = { Icon(Icons.Default.Image, contentDescription = null, tint = Color(0xFF38BDF8)) },
@@ -204,8 +192,6 @@ fun HomeScreen(
                     )
                 )
 
-
-                // Настройки
                 NavigationDrawerItem(
                     label = { Text("Настройки", color = Color.White) },
                     icon = { Icon(Icons.Default.Settings, contentDescription = null, tint = Color(0xFF38BDF8)) },
@@ -274,35 +260,11 @@ fun HomeScreen(
                     weekStats = uiState.weekStats,
                     totalWeekAppointments = uiState.weekStats.sumOf { it.appointments }
                 )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                ClientsCard(
-                    totalClients = uiState.totalClients,
-                    newClientsThisMonth = uiState.newClientsThisMonth,
-                    sleepingClients = uiState.sleepingClients,
-                    onViewClick = onNavigateToClients
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                if (!uiState.isMaster) {
-                    MastersCard(
-                        totalMasters = uiState.totalMasters,
-                        activeMasters = uiState.activeMasters,
-                        onAddClick = onNavigateToMasters
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-
-                WebBookingCard(
-                    url = uiState.webBookingUrl,
-                    onShareClick = onShareWebLink
-                )
             }
         }
     }
 }
+
 @Composable
 fun TodayCard(
     date: String,
@@ -448,97 +410,6 @@ fun WeekStatsCard(
                         )
                     }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-fun ClientsCard(
-    totalClients: Int,
-    newClientsThisMonth: Int,
-    sleepingClients: Int,
-    onViewClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onViewClick() },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text("$totalClients клиент(ов) в базе", color = Color.White, fontWeight = FontWeight.Bold)
-                Text("Смотреть →", color = Color(0xFF38BDF8), fontSize = 14.sp)
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Column {
-                    Text("$newClientsThisMonth", color = Color(0xFF86EFAC), fontWeight = FontWeight.Bold)
-                    Text("новых", color = Color(0xFF94A3B8), fontSize = 12.sp)
-                }
-                Column {
-                    Text("$sleepingClients", color = Color(0xFFFCD34D), fontWeight = FontWeight.Bold)
-                    Text("спящих", color = Color(0xFF94A3B8), fontSize = 12.sp)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun MastersCard(
-    totalMasters: Int,
-    activeMasters: Int,
-    onAddClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onAddClick() },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text("$totalMasters сотрудник(ов)", color = Color.White, fontWeight = FontWeight.Bold)
-                Text("Добавить →", color = Color(0xFF38BDF8), fontSize = 14.sp)
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text("Активных: $activeMasters", color = Color(0xFF86EFAC), fontSize = 14.sp)
-        }
-    }
-}
-
-@Composable
-fun WebBookingCard(url: String, onShareClick: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text("Ваша веб-страничка записи!", color = Color.White, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(url, color = Color(0xFF38BDF8), fontSize = 12.sp, maxLines = 1)
-            Spacer(modifier = Modifier.height(8.dp))
-            Button(
-                onClick = onShareClick,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF38BDF8)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("поделиться", color = Color(0xFF0F172A))
             }
         }
     }
