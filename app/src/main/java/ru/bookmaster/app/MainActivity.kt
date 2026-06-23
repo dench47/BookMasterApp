@@ -40,9 +40,10 @@ import ru.bookmaster.app.ui.clients.ClientsScreen
 import ru.bookmaster.app.ui.home.HomeScreen
 import ru.bookmaster.app.ui.login.LoginScreen
 import ru.bookmaster.app.ui.register.RegisterScreen
+import ru.bookmaster.app.ui.services.ServiceDetailScreen
+import ru.bookmaster.app.ui.services.ServicesScreen
 import ru.bookmaster.app.ui.theme.BookMasterTheme
 import ru.bookmaster.app.util.TokenManager
-import ru.bookmaster.app.ui.services.ServicesScreen
 
 class MainActivity : ComponentActivity() {
 
@@ -88,12 +89,6 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    composable("services") {
-                        ServicesScreen(
-                            onBack = { navController.popBackStack() }
-                        )
-                    }
-
                     composable(
                         "register?phone={phone}",
                         arguments = listOf(navArgument("phone") { defaultValue = "" })
@@ -130,6 +125,27 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     }
+
+                    composable("services") {
+                        ServicesScreen(
+                            onBack = { navController.popBackStack() },
+                            onNavigateToServiceDetail = { serviceId ->
+                                navController.navigate("service_detail/$serviceId")
+                            }
+                        )
+                    }
+
+                    composable(
+                        "service_detail/{serviceId}",
+                        arguments = listOf(navArgument("serviceId") { type = NavType.LongType })
+                    ) { backStackEntry ->
+                        val serviceId = backStackEntry.arguments?.getLong("serviceId") ?: 0L
+                        ServiceDetailScreen(
+                            serviceId = serviceId,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+
                     composable(
                         "client_detail/{clientId}",
                         arguments = listOf(navArgument("clientId") { type = NavType.LongType })
@@ -152,8 +168,7 @@ fun MainScreen(
     onTabSelected: (Int) -> Unit,
     onLogout: () -> Unit,
     onNavigateToClientDetail: (Long) -> Unit,
-    onNavigateToServices: () -> Unit  // ← добавить
-
+    onNavigateToServices: () -> Unit
 ) {
     Scaffold(
         bottomBar = {
@@ -200,7 +215,7 @@ fun MainScreen(
                 onLogout = onLogout,
                 onNavigateToClients = { onTabSelected(1) },
                 onNavigateToMasters = { /* TODO */ },
-                onNavigateToServices = onNavigateToServices,  // ← добавить
+                onNavigateToServices = onNavigateToServices,
                 onShareWebLink = { /* TODO */ }
             )
         }

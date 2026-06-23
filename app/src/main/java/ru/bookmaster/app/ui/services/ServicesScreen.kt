@@ -22,6 +22,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 @Composable
 fun ServicesScreen(
     onBack: () -> Unit,
+    onNavigateToServiceDetail: (Long) -> Unit,
     viewModel: ServicesViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -109,7 +110,7 @@ fun ServicesScreen(
                         ServiceCard(
                             service = service,
                             onToggleActive = { viewModel.toggleActive(service.id) },
-                            onDelete = { viewModel.deleteService(service.id) }
+                            onClick = { onNavigateToServiceDetail(service.id) }
                         )
                     }
                 }
@@ -134,12 +135,13 @@ fun ServicesScreen(
 fun ServiceCard(
     service: ru.bookmaster.app.data.model.ServiceModel,
     onToggleActive: () -> Unit,
-    onDelete: () -> Unit
+    onClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 12.dp),
+            .padding(top = 12.dp)
+            .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (service.active) Color(0xFF1E293B) else Color(0xFF0F172A)
@@ -190,25 +192,14 @@ fun ServiceCard(
                     )
                 }
             }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            // Кнопка "Активна/Активировать"
+            TextButton(
+                onClick = onToggleActive,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = if (service.active) Color(0xFF86EFAC) else Color(0xFF38BDF8)
+                )
             ) {
-                TextButton(
-                    onClick = onToggleActive,
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = if (service.active) Color(0xFF86EFAC) else Color(0xFF38BDF8)
-                    )
-                ) {
-                    Text(if (service.active) "Активна" else "Активировать")
-                }
-                TextButton(
-                    onClick = onDelete,
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = Color(0xFFFCA5A5)
-                    )
-                ) {
-                    Text("Удалить")
-                }
+                Text(if (service.active) "Активна" else "Активировать")
             }
         }
     }

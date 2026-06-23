@@ -145,4 +145,17 @@ interface BookMasterApi {
         @Path("id") id: Long,
         @Header("Authorization") token: String
     ): Response<Unit>
+
+    @GET("api/services/{id}")
+    suspend fun getService(
+        @Path("id") id: Long,
+        @Header("Authorization") token: String
+    ): Response<ServiceModel>
+
+    @PUT("api/services/{id}")
+    suspend fun updateService(
+        @Path("id") serviceId: Long,
+        @Body body: Map<String, Any>,
+        @Header("Authorization") token: String
+    ): Response<ServiceModel>
 }
