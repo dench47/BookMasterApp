@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import ru.bookmaster.app.data.api.RetrofitClient
+import ru.bookmaster.app.data.model.UpdateServiceRequest
 import ru.bookmaster.app.util.TokenManager
 
 data class ServiceDetailUiState(
@@ -80,7 +81,7 @@ class ServiceDetailViewModel(application: Application) : AndroidViewModel(applic
         }
     }
 
-    fun saveService() {
+    fun saveService(onSuccess: () -> Unit) {  // ← добавить колбэк
         val state = _uiState.value
         val priceVal = state.price.toDoubleOrNull()
         val durationVal = state.duration.toIntOrNull()
@@ -94,18 +95,18 @@ class ServiceDetailViewModel(application: Application) : AndroidViewModel(applic
             try {
                 val token = tokenManager.token.first() ?: ""
                 val response = api.updateService(
-                    serviceId = state.serviceId,
-                    body = mapOf(
-                        "name" to state.name,
-                        "description" to state.description,
-                        "price" to priceVal,
-                        "durationMinutes" to durationVal
+                    id = state.serviceId,
+                    body = UpdateServiceRequest(
+                        name = state.name,
+                        description = state.description.takeIf { it.isNotBlank() },
+                        price = priceVal,
+                        durationMinutes = durationVal
                     ),
                     token = "Bearer $token"
                 )
                 if (response.isSuccessful) {
                     _uiState.value = _uiState.value.copy(isSaving = false)
-                    // Возвращаемся назад
+                    onSuccess()  // ← вызываем колбэк
                 } else {
                     _uiState.value = _uiState.value.copy(
                         isSaving = false,
@@ -120,7 +121,6 @@ class ServiceDetailViewModel(application: Application) : AndroidViewModel(applic
             }
         }
     }
-
     fun deleteService() {
         viewModelScope.launch {
             try {

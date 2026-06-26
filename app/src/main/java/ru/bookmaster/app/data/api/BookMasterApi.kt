@@ -18,6 +18,7 @@ import ru.bookmaster.app.data.model.LoginRequest
 import ru.bookmaster.app.data.model.LoginResponse
 import ru.bookmaster.app.data.model.RegisterRequest
 import ru.bookmaster.app.data.model.ServiceModel
+import ru.bookmaster.app.data.model.UpdateServiceRequest
 
 interface BookMasterApi {
 
@@ -154,8 +155,8 @@ interface BookMasterApi {
 
     @PUT("api/services/{id}")
     suspend fun updateService(
-        @Path("id") serviceId: Long,
-        @Body body: Map<String, Any>,
+        @Path("id") id: Long,
+        @Body body: UpdateServiceRequest,
         @Header("Authorization") token: String
     ): Response<ServiceModel>
 }

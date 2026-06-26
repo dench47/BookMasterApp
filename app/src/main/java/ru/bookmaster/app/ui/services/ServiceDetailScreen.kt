@@ -62,6 +62,7 @@ fun ServiceDetailScreen(
                 .padding(bottom = 80.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Заполнитель, который занимает всё пространство
             if (uiState.isLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -83,6 +84,7 @@ fun ServiceDetailScreen(
                     }
                 }
             } else {
+                // Основная карточка с формой
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -140,48 +142,56 @@ fun ServiceDetailScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(
-                            onClick = { viewModel.saveService() },
+                            onClick = { viewModel.saveService(onBack) },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF38BDF8))
                         ) {
                             Text("Сохранить", color = Color(0xFF0F172A))
                         }
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Button(
-                            onClick = { showDeleteDialog = true },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7F1D1D))
-                        ) {
-                            Icon(Icons.Default.Delete, contentDescription = null, tint = Color.White)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Удалить услугу", color = Color.White)
-                        }
                     }
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                // Кнопка удаления - в самом низу экрана
+                Button(
+                    onClick = { showDeleteDialog = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                    elevation = ButtonDefaults.buttonElevation(0.dp)
+                ) {
+                    Text(
+                        "Удалить услугу",
+                        color = Color(0xFFFCA5A5),
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
         }
     }
 
+    // Диалог подтверждения удаления
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text("Удалить услугу?", color = Color.White) },
-            text = { Text("Вы уверены, что хотите удалить услугу? Это действие нельзя отменить.", color = Color(0xFF94A3B8)) },
+            text = {},
             confirmButton = {
-                Button(
+                TextButton(
                     onClick = {
                         viewModel.deleteService()
                         showDeleteDialog = false
                         onBack()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7F1D1D))
+                    }
                 ) {
-                    Text("Удалить")
+                    Text("Удалить", color = Color(0xFFFCA5A5))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Отмена")
+                    Text("Отмена", color = Color(0xFF94A3B8))
                 }
             },
             containerColor = Color(0xFF1E293B)

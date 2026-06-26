@@ -95,7 +95,23 @@ class ServicesViewModel(application: Application) : AndroidViewModel(application
                 val token = tokenManager.token.first() ?: ""
                 val response = api.toggleServiceActive(serviceId, "Bearer $token")
                 if (response.isSuccessful) {
-                    loadServices()
+                    // Обновляем только изменённую услугу в списке
+                    val updatedService = response.body()
+                    val currentServices = _uiState.value.services.toMutableList()
+                    val index = currentServices.indexOfFirst { it.id == serviceId }
+                    if (index != -1 && updatedService != null) {
+                        // Преобразуем Map в ServiceModel
+                        val newService = ServiceModel(
+                            id = (updatedService["id"] as? Number)?.toLong() ?: serviceId,
+                            name = updatedService["name"] as? String ?: "",
+                            description = updatedService["description"] as? String,
+                            price = (updatedService["price"] as? Number)?.toDouble() ?: 0.0,
+                            durationMinutes = (updatedService["durationMinutes"] as? Number)?.toInt() ?: 0,
+                            active = updatedService["active"] as? Boolean ?: false
+                        )
+                        currentServices[index] = newService
+                        _uiState.value = _uiState.value.copy(services = currentServices)
+                    }
                 } else {
                     val errorMsg = if (response.code() == 403) {
                         "Достигнут лимит активных услуг. Подключите Premium."

@@ -106,10 +106,15 @@ fun ServicesScreen(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(uiState.services) { service ->
+                    items(
+                        items = uiState.services,
+                        key = { it.id }  // ← ключ для правильного обновления
+                    ) { service ->
                         ServiceCard(
                             service = service,
-                            onToggleActive = { viewModel.toggleActive(service.id) },
+                            onToggleActive = {
+                                viewModel.toggleActive(service.id)  // ← только для этой услуги
+                            },
                             onClick = { onNavigateToServiceDetail(service.id) }
                         )
                     }
@@ -192,7 +197,6 @@ fun ServiceCard(
                     )
                 }
             }
-            // Кнопка "Активна/Активировать"
             TextButton(
                 onClick = onToggleActive,
                 colors = ButtonDefaults.textButtonColors(
