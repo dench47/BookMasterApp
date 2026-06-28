@@ -134,6 +134,7 @@ fun MasterDetailScreen(
                                 )
                             }
                             Spacer(modifier = Modifier.width(16.dp))
+
                             Column {
                                 TextButton(onClick = { /* TODO: загрузить фото */ }) {
                                     Text("Загрузить фото", color = Color(0xFF38BDF8))
