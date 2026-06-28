@@ -16,8 +16,10 @@ import ru.bookmaster.app.data.model.ClientDetailResponse
 import ru.bookmaster.app.data.model.ClientsResponse
 import ru.bookmaster.app.data.model.LoginRequest
 import ru.bookmaster.app.data.model.LoginResponse
+import ru.bookmaster.app.data.model.Master
 import ru.bookmaster.app.data.model.RegisterRequest
 import ru.bookmaster.app.data.model.ServiceModel
+import ru.bookmaster.app.data.model.UpdateMasterRequest
 import ru.bookmaster.app.data.model.UpdateServiceRequest
 
 interface BookMasterApi {
@@ -159,4 +161,96 @@ interface BookMasterApi {
         @Body body: UpdateServiceRequest,
         @Header("Authorization") token: String
     ): Response<ServiceModel>
+
+    // ========== Мастера ==========
+
+    @GET("api/master/company/{companyId}")
+    suspend fun getMasters(
+        @Path("companyId") companyId: Long,
+        @Header("Authorization") token: String
+    ): Response<List<Master>>
+
+    @GET("api/master/{id}/simple")
+    suspend fun getMaster(
+        @Path("id") id: Long,
+        @Header("Authorization") token: String
+    ): Response<Master>
+
+    @POST("api/master")
+    suspend fun addMaster(
+        @Body body: Map<String, Any>,
+        @Header("Authorization") token: String
+    ): Response<Master>
+
+    @POST("api/master/{id}/activate")
+    suspend fun toggleMasterActive(
+        @Path("id") id: Long,
+        @Header("Authorization") token: String
+    ): Response<Map<String, Any>>
+
+
+    @DELETE("api/master/{id}")
+    suspend fun deleteMaster(
+        @Path("id") id: Long,
+        @Header("Authorization") token: String
+    ): Response<Unit>
+
+    @POST("api/master/{id}/schedule/save-all")
+    suspend fun saveAllSchedule(
+        @Path("id") id: Long,
+        @Body body: Map<String, Any>,
+        @Header("Authorization") token: String
+    ): Response<Map<String, String>>
+
+    // ========== Мастера (полные данные) ==========
+
+    @GET("api/master/{id}")
+    suspend fun getMasterDetails(
+        @Path("id") id: Long,
+        @Header("Authorization") token: String
+    ): Response<Map<String, Any>>
+
+    @GET("api/master/{id}/breaks")
+    suspend fun getMasterBreaks(
+        @Path("id") id: Long,
+        @Header("Authorization") token: String
+    ): Response<List<Map<String, Any>>>
+
+    @POST("api/master/{id}/breaks")
+    suspend fun addMasterBreak(
+        @Path("id") id: Long,
+        @Body body: Map<String, Any>,
+        @Header("Authorization") token: String
+    ): Response<Map<String, String>>
+
+    @DELETE("api/master/{id}/breaks/{breakId}")
+    suspend fun deleteMasterBreak(
+        @Path("id") id: Long,
+        @Path("breakId") breakId: Long,
+        @Header("Authorization") token: String
+    ): Response<Map<String, String>>
+
+    @PUT("api/master/{id}/update")
+    suspend fun updateMasterFull(
+        @Path("id") id: Long,
+        @Body body: UpdateMasterRequest,
+        @Header("Authorization") token: String
+    ): Response<Master>
+
+    @PUT("api/master/{id}/services")
+    suspend fun updateMasterServices(
+        @Path("id") id: Long,
+        @Body serviceIds: List<Long>,
+        @Header("Authorization") token: String
+    ): Response<Map<String, String>>
+
+    @POST("api/master/{id}/schedule/week")
+    suspend fun updateWeekDay(
+        @Path("id") id: Long,
+        @Query("dayOfWeek") dayOfWeek: Int,
+        @Query("isWorking") isWorking: Boolean,
+        @Query("workStart") workStart: String,
+        @Query("workEnd") workEnd: String,
+        @Header("Authorization") token: String
+    ): Response<Map<String, String>>
 }

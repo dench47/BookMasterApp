@@ -1,4 +1,4 @@
-package ru.bookmaster.app.ui.services
+package ru.bookmaster.app.ui.masters
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
@@ -8,26 +8,26 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import ru.bookmaster.app.data.api.RetrofitClient
-import ru.bookmaster.app.data.model.ServiceModel
+import ru.bookmaster.app.data.model.Master
 import ru.bookmaster.app.util.TokenManager
 
-data class ServicesUiState(
-    val services: List<ServiceModel> = emptyList(),
+data class MastersUiState(
+    val masters: List<Master> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
     val isPremium: Boolean = false
 )
 
-class ServicesViewModel(application: Application) : AndroidViewModel(application) {
+class MastersViewModel(application: Application) : AndroidViewModel(application) {
 
     private val tokenManager = TokenManager(application)
     private val api = RetrofitClient.instance
     private val prefs = application.getSharedPreferences("premium_prefs", android.content.Context.MODE_PRIVATE)
 
-    private val _uiState = MutableStateFlow(ServicesUiState())
+    private val _uiState = MutableStateFlow(MastersUiState())
     val uiState = _uiState.asStateFlow()
 
-    fun loadServices() {
+    fun loadMasters() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
@@ -35,10 +35,10 @@ class ServicesViewModel(application: Application) : AndroidViewModel(application
                 val companyId = tokenManager.companyId.first() ?: 0L
                 val isPremium = prefs.getBoolean("is_premium", false)
 
-                val response = api.getServices(companyId, "Bearer $token")
+                val response = api.getMasters(companyId, "Bearer $token")
                 if (response.isSuccessful) {
                     _uiState.value = _uiState.value.copy(
-                        services = response.body() ?: emptyList(),
+                        masters = response.body() ?: emptyList(),
                         isLoading = false,
                         isPremium = isPremium
                     )
@@ -57,77 +57,71 @@ class ServicesViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun addService(name: String, description: String?, price: Double, duration: Int) {
+    fun addMaster(name: String, phone: String?, specialization: String?) {
         viewModelScope.launch {
             try {
                 val token = tokenManager.token.first() ?: ""
+                val companyId = tokenManager.companyId.first() ?: 0L
 
-                val response = api.addService(
+                val response = api.addMaster(
                     body = mapOf(
                         "name" to name,
-                        "description" to (description ?: ""),
-                        "price" to price,
-                        "durationMinutes" to duration,
-                        "active" to true
+                        "phone" to (phone ?: ""),
+                        "specialization" to (specialization ?: ""),
+                        "workStart" to "09:00",
+                        "workEnd" to "18:00",
+                        "companyId" to companyId
                     ),
                     token = "Bearer $token"
                 )
 
                 if (response.isSuccessful) {
-                    loadServices()
+                    loadMasters()
                 } else {
                     val errorMsg = if (response.code() == 403) {
-                        "Достигнут лимит услуг. Подключите Premium."
+                        "Достигнут лимит сотрудников. Подключите Premium."
                     } else {
-                        "Ошибка добавления услуги: ${response.code()}"
+                        "Ошибка добавления сотрудника"
                     }
                     _uiState.value = _uiState.value.copy(error = errorMsg)
                 }
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = e.localizedMessage ?: "Ошибка добавления")
+                _uiState.value = _uiState.value.copy(error = e.localizedMessage ?: "Ошибка")
             }
         }
     }
 
-    fun toggleActive(serviceId: Long) {
+    fun toggleActive(masterId: Long) {
         viewModelScope.launch {
             try {
                 val token = tokenManager.token.first() ?: ""
-                val response = api.toggleServiceActive(serviceId, "Bearer $token")
+                val response = api.toggleMasterActive(masterId, "Bearer $token")
                 if (response.isSuccessful) {
-                    val currentServices = _uiState.value.services.toMutableList()
-                    val index = currentServices.indexOfFirst { it.id == serviceId }
+                    // Просто обновляем статус
+                    val currentMasters = _uiState.value.masters.toMutableList()
+                    val index = currentMasters.indexOfFirst { it.id == masterId }
                     if (index != -1) {
-                        // Просто меняем статус на противоположный
-                        val old = currentServices[index]
-                        currentServices[index] = old.copy(active = !old.active)
-                        _uiState.value = _uiState.value.copy(services = currentServices)
+                        val old = currentMasters[index]
+                        currentMasters[index] = old.copy(active = !old.active)
+                        _uiState.value = _uiState.value.copy(masters = currentMasters)
                     }
                 } else {
-                    val errorMsg = if (response.code() == 403) {
-                        "Достигнут лимит активных услуг. Подключите Premium."
-                    } else {
-                        "Ошибка изменения статуса: ${response.code()}"
-                    }
-                    _uiState.value = _uiState.value.copy(error = errorMsg)
+                    _uiState.value = _uiState.value.copy(
+                        error = "Ошибка изменения статуса: ${response.code()}"
+                    )
                 }
             } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(error = e.localizedMessage ?: "Ошибка изменения статуса")
+                _uiState.value = _uiState.value.copy(error = e.localizedMessage ?: "Ошибка")
             }
         }
     }
 
-
-    fun deleteService(serviceId: Long) {
+    fun deleteMaster(masterId: Long) {
         viewModelScope.launch {
             try {
                 val token = tokenManager.token.first() ?: ""
-                val response = api.deleteService(serviceId, "Bearer $token")
-                if (response.isSuccessful) {
-                    loadServices()
-                } else {
-                    _uiState.value = _uiState.value.copy(error = "Ошибка удаления услуги: ${response.code()}")
-                }
+                api.deleteMaster(masterId, "Bearer $token")
+                loadMasters()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(error = e.localizedMessage ?: "Ошибка удаления")
             }

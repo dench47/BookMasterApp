@@ -39,6 +39,8 @@ import ru.bookmaster.app.ui.clients.ClientDetailScreen
 import ru.bookmaster.app.ui.clients.ClientsScreen
 import ru.bookmaster.app.ui.home.HomeScreen
 import ru.bookmaster.app.ui.login.LoginScreen
+import ru.bookmaster.app.ui.masters.MasterDetailScreen
+import ru.bookmaster.app.ui.masters.MastersScreen
 import ru.bookmaster.app.ui.register.RegisterScreen
 import ru.bookmaster.app.ui.services.ServiceDetailScreen
 import ru.bookmaster.app.ui.services.ServicesScreen
@@ -122,6 +124,9 @@ class MainActivity : ComponentActivity() {
                             },
                             onNavigateToServices = {
                                 navController.navigate("services")
+                            },
+                            onNavigateToMasters = {
+                                navController.navigate("masters")
                             }
                         )
                     }
@@ -142,6 +147,26 @@ class MainActivity : ComponentActivity() {
                         val serviceId = backStackEntry.arguments?.getLong("serviceId") ?: 0L
                         ServiceDetailScreen(
                             serviceId = serviceId,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable("masters") {
+                        MastersScreen(
+                            onBack = { navController.popBackStack() },
+                            onNavigateToMasterDetail = { masterId ->
+                                navController.navigate("master_detail/$masterId")
+                            }
+                        )
+                    }
+
+                    composable(
+                        "master_detail/{masterId}",
+                        arguments = listOf(navArgument("masterId") { type = NavType.LongType })
+                    ) { backStackEntry ->
+                        val masterId = backStackEntry.arguments?.getLong("masterId") ?: 0L
+                        MasterDetailScreen(
+                            masterId = masterId,
                             onBack = { navController.popBackStack() }
                         )
                     }
@@ -168,7 +193,8 @@ fun MainScreen(
     onTabSelected: (Int) -> Unit,
     onLogout: () -> Unit,
     onNavigateToClientDetail: (Long) -> Unit,
-    onNavigateToServices: () -> Unit
+    onNavigateToServices: () -> Unit,
+    onNavigateToMasters: () -> Unit
 ) {
     Scaffold(
         bottomBar = {
@@ -199,9 +225,7 @@ fun MainScreen(
                 onNavigateToClients = {
                     onTabSelected(1)
                 },
-                onNavigateToMasters = {
-                    // TODO
-                },
+                onNavigateToMasters = onNavigateToMasters,
                 onShareWebLink = {
                     // TODO
                 }
@@ -214,7 +238,7 @@ fun MainScreen(
                 modifier = Modifier.padding(paddingValues),
                 onLogout = onLogout,
                 onNavigateToClients = { onTabSelected(1) },
-                onNavigateToMasters = { /* TODO */ },
+                onNavigateToMasters = onNavigateToMasters,
                 onNavigateToServices = onNavigateToServices,
                 onShareWebLink = { /* TODO */ }
             )
