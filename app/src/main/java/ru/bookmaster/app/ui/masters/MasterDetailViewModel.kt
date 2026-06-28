@@ -429,38 +429,30 @@ class MasterDetailViewModel(application: Application) : AndroidViewModel(applica
             try {
                 val token = tokenManager.token.first() ?: ""
 
-                val weekDaysData = state.weekDays.map { w ->
-                    mapOf(
-                        "dayOfWeek" to w.dayOfWeek,
-                        "isWorking" to w.isWorking,
-                        "workStart" to w.workStart,
-                        "workEnd" to w.workEnd,
-                        "timeStep" to state.timeStep
+                // Сохраняем каждый день через updateWeekDay
+                state.weekDays.forEach { day ->
+                    val response = api.updateWeekDay(
+                        id = state.masterId,
+                        dayOfWeek = day.dayOfWeek,
+                        isWorking = day.isWorking,
+                        workStart = day.workStart,
+                        workEnd = day.workEnd,
+                        token = "Bearer $token"
                     )
+                    if (!response.isSuccessful) {
+                        _uiState.value = _uiState.value.copy(
+                            error = "Ошибка сохранения: ${response.code()}"
+                        )
+                        return@launch
+                    }
                 }
 
-                // Для Android пока нет календаря (выходные дни), передаём пустой список
-                val datesData = emptyList<Map<String, Any>>()
+                _uiState.value = _uiState.value.copy(error = null)
+                onSuccess()
 
-                val response = api.saveAllSchedule(
-                    id = state.masterId,
-                    body = mapOf(
-                        "weekDays" to weekDaysData,
-                        "dates" to datesData
-                    ),
-                    token = "Bearer $token"
-                )
-
-                if (response.isSuccessful) {
-                    onSuccess()
-                } else {
-                    _uiState.value = _uiState.value.copy(
-                        error = "Ошибка сохранения графика: ${response.code()}"
-                    )
-                }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
-                    error = e.localizedMessage ?: "Ошибка сохранения графика"
+                    error = e.localizedMessage ?: "Ошибка сохранения"
                 )
             }
         }
