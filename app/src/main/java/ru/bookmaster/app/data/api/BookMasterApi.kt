@@ -253,4 +253,11 @@ interface BookMasterApi {
         @Query("workEnd") workEnd: String,
         @Header("Authorization") token: String
     ): Response<Map<String, String>>
+
+    @POST("api/master/{id}/photo")
+    suspend fun uploadMasterPhoto(
+        @Path("id") id: Long,
+        @Body body: Map<String, String>,
+        @Header("Authorization") token: String
+    ): Response<Map<String, String>>
 }

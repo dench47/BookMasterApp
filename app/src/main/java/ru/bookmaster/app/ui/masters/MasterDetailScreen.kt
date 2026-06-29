@@ -1,6 +1,13 @@
 package ru.bookmaster.app.ui.masters
 
 import android.annotation.SuppressLint
+import android.app.Application
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
+import android.util.Base64
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -16,24 +23,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import java.time.LocalTime
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TimePicker
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.ui.window.Dialog
-import androidx.compose.material3.TimePickerLayoutType
-
-
-
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import java.io.ByteArrayOutputStream
+import java.time.LocalTime
+import ru.bookmaster.app.R
 
 @SuppressLint("DefaultLocale")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -46,9 +48,29 @@ fun MasterDetailScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showAddBreakDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     LaunchedEffect(masterId) {
         viewModel.loadMaster(masterId)
+    }
+
+    // Выбор фото из галереи
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            try {
+                val inputStream = context.contentResolver.openInputStream(it)
+                val bitmap = BitmapFactory.decodeStream(inputStream)
+                val stream = ByteArrayOutputStream()
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 70, stream)
+                val byteArray = stream.toByteArray()
+                val base64 = Base64.encodeToString(byteArray, Base64.DEFAULT)
+                viewModel.uploadPhoto(base64)
+            } catch (e: Exception) {
+                viewModel.updateError("Ошибка загрузки фото: ${e.message}")
+            }
+        }
     }
 
     Scaffold(
@@ -126,18 +148,39 @@ fun MasterDetailScreen(
                                     .background(Color(0xFF334155)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(
-                                    uiState.name.take(1).uppercase(),
-                                    color = Color.White,
-                                    fontSize = 32.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                if (uiState.photo.isNotBlank()) {
+                                    AsyncImage(
+                                        model = uiState.photo,
+                                        contentDescription = "Фото сотрудника",
+                                        modifier = Modifier
+                                            .size(80.dp)
+                                            .clip(CircleShape),
+                                        placeholder = painterResource(R.drawable.ic_launcher_foreground),
+                                        error = painterResource(R.drawable.ic_launcher_foreground)
+                                    )
+                                } else {
+                                    Text(
+                                        uiState.name.take(1).uppercase(),
+                                        color = Color.White,
+                                        fontSize = 32.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                             Spacer(modifier = Modifier.width(16.dp))
-
                             Column {
-                                TextButton(onClick = { /* TODO: загрузить фото */ }) {
-                                    Text("Загрузить фото", color = Color(0xFF38BDF8))
+                                TextButton(
+                                    onClick = { photoPickerLauncher.launch("image/*") },
+                                    enabled = !uiState.isSaving
+                                ) {
+                                    if (uiState.isSaving) {
+                                        CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                                    } else {
+                                        Text(
+                                            if (uiState.photo.isNotBlank()) "Изменить фото" else "Загрузить фото",
+                                            color = Color(0xFF38BDF8)
+                                        )
+                                    }
                                 }
                                 if (uiState.photo.isNotBlank()) {
                                     Text("Фото загружено", color = Color(0xFF86EFAC), fontSize = 12.sp)
@@ -219,7 +262,7 @@ fun MasterDetailScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-// ===== 3. График работы =====
+                // ===== 3. График работы =====
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
@@ -321,6 +364,7 @@ fun MasterDetailScreen(
                         }
                     }
                 }
+
                 // ===== 4. Выходные дни (календарь) =====
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -720,7 +764,6 @@ fun AddBreakDialog(
     )
 
 }
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

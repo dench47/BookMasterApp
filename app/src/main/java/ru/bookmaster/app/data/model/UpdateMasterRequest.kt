@@ -6,5 +6,7 @@ data class UpdateMasterRequest(
     val description: String? = null,
     val timeStep: Int,
     val bookingLimit: String,
-    val stickTime: Boolean
+    val stickTime: Boolean,
+    val photo: String? = null  // добавить
+
 )

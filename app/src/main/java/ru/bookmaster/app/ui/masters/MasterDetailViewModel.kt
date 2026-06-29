@@ -11,6 +11,7 @@ import ru.bookmaster.app.data.api.RetrofitClient
 import ru.bookmaster.app.data.model.UpdateMasterRequest
 import ru.bookmaster.app.util.TokenManager
 import java.time.LocalDate
+import java.util.UUID
 
 data class MasterService(
     val id: Long,
@@ -74,7 +75,6 @@ class MasterDetailViewModel(application: Application) : AndroidViewModel(applica
     val uiState = _uiState.asStateFlow()
 
     init {
-        // Инициализация календаря при создании
         generateCalendar()
     }
 
@@ -121,10 +121,7 @@ class MasterDetailViewModel(application: Application) : AndroidViewModel(applica
                         isLoading = false
                     )
 
-                    // Генерируем календарь
                     generateCalendar()
-
-                    // Загружаем перерывы
                     loadBreaks(masterId)
                 } else {
                     _uiState.value = _uiState.value.copy(
@@ -247,12 +244,10 @@ class MasterDetailViewModel(application: Application) : AndroidViewModel(applica
             }
             _uiState.value = _uiState.value.copy(calendarDays = updated)
 
-            // Отправляем на сервер
             viewModelScope.launch {
                 try {
                     val token = tokenManager.token.first() ?: ""
                     val dow = LocalDate.parse(date).dayOfWeek.value
-                    // Обновляем день недели
                     api.updateWeekDay(
                         id = _uiState.value.masterId,
                         dayOfWeek = dow,
@@ -282,6 +277,50 @@ class MasterDetailViewModel(application: Application) : AndroidViewModel(applica
 
     fun updateStickTime(value: Boolean) {
         _uiState.value = _uiState.value.copy(stickTime = value)
+    }
+
+    fun uploadPhoto(photoBase64: String) {
+        viewModelScope.launch {
+            try {
+                _uiState.value = _uiState.value.copy(isSaving = true)
+                val token = tokenManager.token.first() ?: ""
+
+                val response = api.updateMasterFull(
+                    id = _uiState.value.masterId,
+                    body = UpdateMasterRequest(
+                        name = _uiState.value.name,
+                        photo = photoBase64,
+                        phone = _uiState.value.phone,
+                        description = _uiState.value.description,
+                        timeStep = _uiState.value.timeStep,
+                        bookingLimit = _uiState.value.bookingLimit,
+                        stickTime = _uiState.value.stickTime
+                    ),
+                    token = "Bearer $token"
+                )
+
+                if (response.isSuccessful) {
+                    _uiState.value = _uiState.value.copy(
+                        photo = photoBase64,
+                        isSaving = false
+                    )
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        error = "Ошибка загрузки фото: ${response.code()}",
+                        isSaving = false
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    error = e.localizedMessage ?: "Ошибка загрузки фото",
+                    isSaving = false
+                )
+            }
+        }
+    }
+
+    fun updateError(error: String) {
+        _uiState.value = _uiState.value.copy(error = error)
     }
 
     fun addBreak(dayOfWeek: Int?, breakDate: String?, startTime: String, endTime: String, description: String?) {
@@ -366,7 +405,6 @@ class MasterDetailViewModel(application: Application) : AndroidViewModel(applica
             try {
                 val token = tokenManager.token.first() ?: ""
 
-                // 1. Сохраняем личные данные и настройки
                 val response = api.updateMasterFull(
                     id = state.masterId,
                     body = UpdateMasterRequest(
@@ -381,11 +419,9 @@ class MasterDetailViewModel(application: Application) : AndroidViewModel(applica
                 )
 
                 if (response.isSuccessful) {
-                    // 2. Сохраняем услуги
                     val serviceIds = state.services.filter { it.assigned }.map { it.id }
                     api.updateMasterServices(state.masterId, serviceIds, "Bearer $token")
 
-                    // 3. Сохраняем график работы
                     state.weekDays.forEach { day ->
                         api.updateWeekDay(
                             id = state.masterId,
@@ -429,30 +465,37 @@ class MasterDetailViewModel(application: Application) : AndroidViewModel(applica
             try {
                 val token = tokenManager.token.first() ?: ""
 
-                // Сохраняем каждый день через updateWeekDay
-                state.weekDays.forEach { day ->
-                    val response = api.updateWeekDay(
-                        id = state.masterId,
-                        dayOfWeek = day.dayOfWeek,
-                        isWorking = day.isWorking,
-                        workStart = day.workStart,
-                        workEnd = day.workEnd,
-                        token = "Bearer $token"
+                val weekDaysData = state.weekDays.map { w ->
+                    mapOf(
+                        "dayOfWeek" to w.dayOfWeek,
+                        "isWorking" to w.isWorking,
+                        "workStart" to w.workStart,
+                        "workEnd" to w.workEnd,
+                        "timeStep" to state.timeStep
                     )
-                    if (!response.isSuccessful) {
-                        _uiState.value = _uiState.value.copy(
-                            error = "Ошибка сохранения: ${response.code()}"
-                        )
-                        return@launch
-                    }
                 }
 
-                _uiState.value = _uiState.value.copy(error = null)
-                onSuccess()
+                val datesData = emptyList<Map<String, Any>>()
 
+                val response = api.saveAllSchedule(
+                    id = state.masterId,
+                    body = mapOf(
+                        "weekDays" to weekDaysData,
+                        "dates" to datesData
+                    ),
+                    token = "Bearer $token"
+                )
+
+                if (response.isSuccessful) {
+                    onSuccess()
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        error = "Ошибка сохранения графика: ${response.code()}"
+                    )
+                }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
-                    error = e.localizedMessage ?: "Ошибка сохранения"
+                    error = e.localizedMessage ?: "Ошибка сохранения графика"
                 )
             }
         }

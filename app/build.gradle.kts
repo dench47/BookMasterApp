@@ -15,6 +15,8 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
+
+        buildConfigField("String", "BASE_URL", "\"${System.getenv("BOOKMASTER_BASE_URL") ?: "http://172.25.41.231:8080/"}\"")
     }
 
     buildTypes {
@@ -30,6 +32,10 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+    buildFeatures {
+        buildConfig = true
+    }
+
     kotlinOptions {
         jvmTarget = "11"
     }
@@ -76,7 +82,11 @@ dependencies {
     implementation(libs.androidx.foundation)
     implementation(libs.androidx.material3)
 
+    implementation("io.coil-kt:coil-compose:2.6.0")
+
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+
 }
