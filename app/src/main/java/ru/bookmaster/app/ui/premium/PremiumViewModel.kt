@@ -1,6 +1,8 @@
 package ru.bookmaster.app.ui.premium
 
 import android.app.Application
+import android.content.Context
+import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,9 +36,11 @@ class PremiumViewModel(application: Application) : AndroidViewModel(application)
                 val response = api.activatePremium(companyId, "Bearer $token")
 
                 if (response.isSuccessful) {
-                    // Обновляем локальные данные о премиуме
-                    val prefs = getApplication<Application>().getSharedPreferences("premium_prefs", android.content.Context.MODE_PRIVATE)
-                    prefs.edit().putBoolean("is_premium", true).apply()
+                    // Сохраняем is_premium = true в SharedPreferences
+                    val prefs = getApplication<Application>().getSharedPreferences("premium_prefs", Context.MODE_PRIVATE)
+                    prefs.edit {
+                        putBoolean("is_premium", true)
+                    }
 
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,

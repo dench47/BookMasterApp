@@ -179,7 +179,7 @@ interface BookMasterApi {
 
     @POST("api/master")
     suspend fun addMaster(
-        @Body body: Map<String, Any>,
+        @Body body: Map<String, @JvmSuppressWildcards Any>,
         @Header("Authorization") token: String
     ): Response<Master>
 
@@ -199,7 +199,7 @@ interface BookMasterApi {
     @POST("api/master/{id}/schedule/save-all")
     suspend fun saveAllSchedule(
         @Path("id") id: Long,
-        @Body body: Map<String, Any>,
+        @Body body: Map<String, @JvmSuppressWildcards Any>,
         @Header("Authorization") token: String
     ): Response<Map<String, String>>
 

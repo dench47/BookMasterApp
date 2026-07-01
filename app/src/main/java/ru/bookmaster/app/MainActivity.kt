@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -35,12 +36,14 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import ru.bookmaster.app.ui.cabinet.CabinetScreen
+import ru.bookmaster.app.ui.cabinet.CabinetViewModel
 import ru.bookmaster.app.ui.clients.ClientDetailScreen
 import ru.bookmaster.app.ui.clients.ClientsScreen
 import ru.bookmaster.app.ui.home.HomeScreen
 import ru.bookmaster.app.ui.login.LoginScreen
 import ru.bookmaster.app.ui.masters.MasterDetailScreen
 import ru.bookmaster.app.ui.masters.MastersScreen
+import ru.bookmaster.app.ui.premium.PremiumScreen
 import ru.bookmaster.app.ui.register.RegisterScreen
 import ru.bookmaster.app.ui.services.ServiceDetailScreen
 import ru.bookmaster.app.ui.services.ServicesScreen
@@ -73,6 +76,9 @@ class MainActivity : ComponentActivity() {
             BookMasterTheme {
                 val navController = rememberNavController()
                 var selectedTab by remember { mutableStateOf(0) }
+
+                // Создаём общий экземпляр CabinetViewModel для всех экранов
+                val cabinetViewModel: CabinetViewModel = viewModel()
 
                 NavHost(
                     navController = navController,
@@ -127,7 +133,9 @@ class MainActivity : ComponentActivity() {
                             },
                             onNavigateToMasters = {
                                 navController.navigate("masters")
-                            }
+                            },
+                            onNavigateToPremium = { navController.navigate("premium") },
+                            cabinetViewModel = cabinetViewModel // Передаём общий ViewModel
                         )
                     }
 
@@ -181,6 +189,17 @@ class MainActivity : ComponentActivity() {
                             onBack = { navController.popBackStack() }
                         )
                     }
+
+                    // Экран Premium
+                    composable("premium") {
+                        PremiumScreen(
+                            onBack = { navController.popBackStack() },
+                            onPremiumActivated = {
+                                cabinetViewModel.refresh() // <--- Обновляем данные после активации
+                                navController.popBackStack()
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -194,7 +213,9 @@ fun MainScreen(
     onLogout: () -> Unit,
     onNavigateToClientDetail: (Long) -> Unit,
     onNavigateToServices: () -> Unit,
-    onNavigateToMasters: () -> Unit
+    onNavigateToMasters: () -> Unit,
+    onNavigateToPremium: () -> Unit,
+    cabinetViewModel: CabinetViewModel // <--- Принимаем общий ViewModel
 ) {
     Scaffold(
         bottomBar = {
@@ -232,7 +253,8 @@ fun MainScreen(
             )
             1 -> ClientsScreen(
                 modifier = Modifier.padding(paddingValues),
-                onNavigateToDetail = onNavigateToClientDetail
+                onNavigateToDetail = onNavigateToClientDetail,
+                onNavigateToPremium = onNavigateToPremium
             )
             2 -> CabinetScreen(
                 modifier = Modifier.padding(paddingValues),
@@ -240,7 +262,9 @@ fun MainScreen(
                 onNavigateToClients = { onTabSelected(1) },
                 onNavigateToMasters = onNavigateToMasters,
                 onNavigateToServices = onNavigateToServices,
-                onShareWebLink = { /* TODO */ }
+                onShareWebLink = { /* TODO */ },
+                onNavigateToPremium = onNavigateToPremium,
+                viewModel = cabinetViewModel // <--- Передаём общий ViewModel
             )
         }
     }

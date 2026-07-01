@@ -30,7 +30,8 @@ fun CabinetScreen(
     onNavigateToMasters: () -> Unit,
     onNavigateToServices: () -> Unit,
     onShareWebLink: () -> Unit,
-    viewModel: CabinetViewModel = viewModel()
+    onNavigateToPremium: () -> Unit,
+    viewModel: CabinetViewModel = viewModel() // <--- Будет передан из MainActivity
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -240,7 +241,56 @@ fun CabinetScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Блок 6: Уведомления
+            // Блок 6: Premium статус
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (uiState.isPremium) Color(0xFF14532D).copy(alpha = 0.3f) else Color(0xFF1E293B)
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            if (uiState.isPremium) Icons.Default.Verified else Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = if (uiState.isPremium) Color(0xFF38BDF8) else Color(0xFFFCD34D)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                if (uiState.isPremium) "Premium активен" else "Бесплатный тариф",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                if (uiState.isPremium) "Доступны все функции" else "Ограниченные возможности",
+                                color = Color(0xFF94A3B8),
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                    if (!uiState.isPremium) {
+                        Button(
+                            onClick = onNavigateToPremium,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF38BDF8)),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                        ) {
+                            Text("Подключить", color = Color(0xFF0F172A), fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Блок 7: Уведомления
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),

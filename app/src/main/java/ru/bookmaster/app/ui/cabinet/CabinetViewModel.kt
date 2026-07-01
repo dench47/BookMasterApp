@@ -1,6 +1,7 @@
 package ru.bookmaster.app.ui.cabinet
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,7 +23,8 @@ data class CabinetUiState(
     val servicesCount: Int = 0,
     val webBookingUrl: String = "",
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val isPremium: Boolean = false
 )
 
 class CabinetViewModel(application: Application) : AndroidViewModel(application) {
@@ -37,6 +39,10 @@ class CabinetViewModel(application: Application) : AndroidViewModel(application)
         loadData()
     }
 
+    fun refresh() {
+        loadData()
+    }
+
     fun loadData() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
@@ -47,13 +53,26 @@ class CabinetViewModel(application: Application) : AndroidViewModel(application)
                 val email = tokenManager.email.first() ?: ""
                 val companyType = tokenManager.companyType.first() ?: "salon"
 
-                // Загружаем данные компании
+                // 1. Данные компании
                 val companyResponse = api.getCompany(companyId, "Bearer $token")
                 val companyData = if (companyResponse.isSuccessful) companyResponse.body() else null
 
-                // Загружаем статистику для цифр
-                val statsResponse = api.getStats(companyId, "Bearer $token")
-                val statsData = if (statsResponse.isSuccessful) statsResponse.body() else null
+                // 2. Статистика по клиентам (totalClients)
+                val clientsStatsResponse = api.getClientsStats(companyId, "Bearer $token")
+                val clientsStatsData = if (clientsStatsResponse.isSuccessful) clientsStatsResponse.body() else null
+
+                // 3. Статистика по мастерам (totalMasters)
+                val mastersStatsResponse = api.getMastersStats(companyId, "Bearer $token")
+                val mastersStatsData = if (mastersStatsResponse.isSuccessful) mastersStatsResponse.body() else null
+
+                // 4. Список услуг (servicesCount)
+                val servicesResponse = api.getServices(companyId, "Bearer $token")
+                val services = servicesResponse.body()
+                val servicesCount = services?.size ?: 0 // <--- Исправлено!
+
+                // 5. Premium статус
+                val prefs = getApplication<Application>().getSharedPreferences("premium_prefs", Context.MODE_PRIVATE)
+                val isPremium = prefs.getBoolean("is_premium", false)
 
                 _uiState.value = CabinetUiState(
                     displayName = companyName,
@@ -62,11 +81,12 @@ class CabinetViewModel(application: Application) : AndroidViewModel(application)
                     address = companyData?.get("address") as? String ?: "",
                     createdAt = companyData?.get("createdAt") as? String ?: "",
                     isMaster = companyType == "master",
-                    totalClients = (statsData?.get("totalClients") as? Number)?.toInt() ?: 0,
-                    totalMasters = (statsData?.get("totalMasters") as? Number)?.toInt() ?: 0,
-                    servicesCount = (statsData?.get("servicesCount") as? Number)?.toInt() ?: 0,
+                    totalClients = (clientsStatsData?.get("totalClients") as? Number)?.toInt() ?: 0,
+                    totalMasters = (mastersStatsData?.get("totalMasters") as? Number)?.toInt() ?: 0,
+                    servicesCount = servicesCount,
                     webBookingUrl = "http://your-server.com/salon/$companyId",
-                    isLoading = false
+                    isLoading = false,
+                    isPremium = isPremium
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(

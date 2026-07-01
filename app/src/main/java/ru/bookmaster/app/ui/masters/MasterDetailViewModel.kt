@@ -11,7 +11,7 @@ import ru.bookmaster.app.data.api.RetrofitClient
 import ru.bookmaster.app.data.model.UpdateMasterRequest
 import ru.bookmaster.app.util.TokenManager
 import java.time.LocalDate
-import java.util.UUID
+import com.google.gson.Gson
 
 data class MasterService(
     val id: Long,
@@ -459,12 +459,14 @@ class MasterDetailViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
+
     fun saveAllSchedule(onSuccess: () -> Unit) {
         val state = _uiState.value
         viewModelScope.launch {
             try {
                 val token = tokenManager.token.first() ?: ""
 
+                // 1. Формируем данные по дням недели (как объекты)
                 val weekDaysData = state.weekDays.map { w ->
                     mapOf(
                         "dayOfWeek" to w.dayOfWeek,
@@ -475,18 +477,25 @@ class MasterDetailViewModel(application: Application) : AndroidViewModel(applica
                     )
                 }
 
-                val datesData = emptyList<Map<String, Any>>()
+                // 2. Превращаем в JSON-строку
+                val weekDaysJson = Gson().toJson(weekDaysData)
 
+                // 3. Формируем dates (пока пустой список)
+                val datesData = emptyList<Map<String, Any>>()
+                val datesJson = Gson().toJson(datesData)
+
+                // 4. Отправляем как Map<String, String>
                 val response = api.saveAllSchedule(
                     id = state.masterId,
                     body = mapOf(
-                        "weekDays" to weekDaysData,
-                        "dates" to datesData
+                        "weekDays" to weekDaysJson,
+                        "dates" to datesJson
                     ),
                     token = "Bearer $token"
                 )
 
                 if (response.isSuccessful) {
+                    // Всё ок — закрываем экран
                     onSuccess()
                 } else {
                     _uiState.value = _uiState.value.copy(
@@ -499,5 +508,4 @@ class MasterDetailViewModel(application: Application) : AndroidViewModel(applica
                 )
             }
         }
-    }
-}
+    }}

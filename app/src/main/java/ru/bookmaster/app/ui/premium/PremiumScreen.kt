@@ -2,13 +2,15 @@ package ru.bookmaster.app.ui.premium
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,17 +21,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import ru.bookmaster.app.ui.theme.BookMasterTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PremiumScreen(
     onBack: () -> Unit,
-    onPremiumActivated: () -> Unit,
-    viewModel: PremiumViewModel = viewModel()
+    onPremiumActivated: () -> Unit
 ) {
+    val viewModel: PremiumViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsState()
-    val scrollState = rememberScrollState()
 
     LaunchedEffect(uiState.isPremiumActive) {
         if (uiState.isPremiumActive) {
@@ -37,110 +37,108 @@ fun PremiumScreen(
         }
     }
 
-    BookMasterTheme {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { Text("Подписка Premium", style = MaterialTheme.typography.titleMedium) },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Назад")
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    )
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Подписка Premium", style = MaterialTheme.typography.titleMedium) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Назад")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
-            }
-        ) { paddingValues ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .verticalScroll(scrollState)
-                    .padding(horizontal = 16.dp, vertical = 24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                "Расширьте возможности вашего бизнеса",
+                style = MaterialTheme.typography.headlineSmall,
+                color = Color(0xFF38BDF8),
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                "Подключите Premium и получите доступ ко всем функциям",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFF94A3B8),
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Бесплатный тариф
+            PremiumCard(
+                title = "Бесплатный",
+                price = "0 ₽/мес",
+                features = listOf(
+                    "До 1 сотрудника",
+                    "Запись на 7 дней вперёд",
+                    "До 3 услуг",
+                    "Базовая поддержка"
+                ),
+                isPremium = false,
+                isSelected = false,
+                onSelect = {}
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Premium тариф
+            PremiumCard(
+                title = "Premium",
+                price = "499 ₽/мес",
+                features = listOf(
+                    "✅ Безлимит сотрудников",
+                    "✅ Запись на любой срок",
+                    "✅ Безлимит услуг",
+                    "✅ Напоминания клиентам",
+                    "✅ Статистика и отчёты",
+                    "✅ Приоритетная поддержка"
+                ),
+                isPremium = true,
+                isSelected = true,
+                onSelect = {}
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = { viewModel.activatePremium() },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                enabled = !uiState.isLoading,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF38BDF8))
             ) {
-                Text(
-                    "Расширьте возможности вашего бизнеса",
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = Color(0xFF38BDF8),
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    "Подключите Premium и получите доступ ко всем функциям",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF94A3B8),
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Бесплатный тариф
-                PremiumCard(
-                    title = "Бесплатный",
-                    price = "0 ₽/мес",
-                    features = listOf(
-                        "До 1 сотрудника",
-                        "Запись на 7 дней вперёд",
-                        "До 3 услуг",
-                        "Базовая поддержка"
-                    ),
-                    isPremium = false,
-                    isSelected = false,
-                    onSelect = {}
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Premium тариф
-                PremiumCard(
-                    title = "Premium",
-                    price = "499 ₽/мес",
-                    features = listOf(
-                        "✅ Безлимит сотрудников",
-                        "✅ Запись на любой срок",
-                        "✅ Безлимит услуг",
-                        "✅ Напоминания клиентам",
-                        "✅ Статистика и отчёты",
-                        "✅ Приоритетная поддержка"
-                    ),
-                    isPremium = true,
-                    isSelected = true,
-                    onSelect = {}
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Button(
-                    onClick = { viewModel.activatePremium() },
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    enabled = !uiState.isLoading,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF38BDF8))
-                ) {
-                    if (uiState.isLoading) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp, color = Color(0xFF0F172A))
-                    } else {
-                        Text("Активировать Premium", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
-                    }
+                if (uiState.isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp, color = Color(0xFF0F172A))
+                } else {
+                    Text("Активировать Premium", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
                 }
+            }
 
-                if (uiState.error != null) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF7F1D1D).copy(alpha = 0.3f)),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text(
-                            uiState.error!!,
-                            modifier = Modifier.padding(12.dp),
-                            color = Color(0xFFFCA5A5),
-                            fontSize = 14.sp
-                        )
-                    }
+            if (uiState.error != null) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF7F1D1D).copy(alpha = 0.3f)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        uiState.error!!,
+                        modifier = Modifier.padding(12.dp),
+                        color = Color(0xFFFCA5A5),
+                        fontSize = 14.sp
+                    )
                 }
             }
         }
