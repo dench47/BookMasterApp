@@ -607,14 +607,15 @@ fun MasterDetailScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.deleteMaster()
-                        showDeleteDialog = false
-                        onBack()
+                        viewModel.deleteMaster(
+                            onSuccess = {
+                                onBack()
+                            }
+                        )
                     }
                 ) {
                     Text("Удалить", color = Color(0xFFFCA5A5))
-                }
-            },
+                }            },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
                     Text("Отмена", color = Color(0xFF94A3B8))

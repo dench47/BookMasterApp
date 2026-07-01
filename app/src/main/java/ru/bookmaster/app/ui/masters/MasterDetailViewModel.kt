@@ -393,72 +393,29 @@ class MasterDetailViewModel(application: Application) : AndroidViewModel(applica
         return "${months[_uiState.value.calendarMonth - 1]} ${_uiState.value.calendarYear}"
     }
 
-    fun saveMaster(onSuccess: () -> Unit) {
-        val state = _uiState.value
-        if (state.name.isBlank()) {
-            _uiState.value = _uiState.value.copy(error = "Заполните имя")
-            return
-        }
 
+    fun deleteMaster(onSuccess: () -> Unit) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isSaving = true, error = null)
             try {
                 val token = tokenManager.token.first() ?: ""
-
-                val response = api.updateMasterFull(
-                    id = state.masterId,
-                    body = UpdateMasterRequest(
-                        name = state.name,
-                        phone = state.phone.takeIf { it.isNotBlank() },
-                        description = state.description.takeIf { it.isNotBlank() },
-                        timeStep = state.timeStep,
-                        bookingLimit = state.bookingLimit,
-                        stickTime = state.stickTime
-                    ),
-                    token = "Bearer $token"
-                )
+                val response = api.deleteMaster(_uiState.value.masterId, "Bearer $token")
 
                 if (response.isSuccessful) {
-                    val serviceIds = state.services.filter { it.assigned }.map { it.id }
-                    api.updateMasterServices(state.masterId, serviceIds, "Bearer $token")
-
-                    state.weekDays.forEach { day ->
-                        api.updateWeekDay(
-                            id = state.masterId,
-                            dayOfWeek = day.dayOfWeek,
-                            isWorking = day.isWorking,
-                            workStart = day.workStart,
-                            workEnd = day.workEnd,
-                            token = "Bearer $token"
-                        )
-                    }
-
-                    _uiState.value = _uiState.value.copy(isSaving = false)
+                    // Если удаление прошло успешно — закрываем экран
                     onSuccess()
                 } else {
+                    // Если ошибка — показываем её
                     _uiState.value = _uiState.value.copy(
-                        isSaving = false,
-                        error = "Ошибка сохранения: ${response.code()}"
+                        error = "Ошибка удаления: ${response.code()}"
                     )
                 }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
-                    isSaving = false,
-                    error = e.localizedMessage ?: "Ошибка сохранения"
+                    error = e.localizedMessage ?: "Ошибка удаления"
                 )
             }
         }
     }
-
-    fun deleteMaster() {
-        viewModelScope.launch {
-            try {
-                val token = tokenManager.token.first() ?: ""
-                api.deleteMaster(_uiState.value.masterId, "Bearer $token")
-            } catch (_: Exception) { }
-        }
-    }
-
 
     fun saveAllSchedule(onSuccess: () -> Unit) {
         val state = _uiState.value
@@ -466,7 +423,40 @@ class MasterDetailViewModel(application: Application) : AndroidViewModel(applica
             try {
                 val token = tokenManager.token.first() ?: ""
 
-                // 1. Формируем данные по дням недели (как объекты)
+                // 1. Сначала обновляем основные данные мастера
+                val updateResponse = api.updateMasterFull(
+                    id = state.masterId,
+                    body = UpdateMasterRequest(
+                        name = state.name,
+                        phone = state.phone.takeIf { it.isNotBlank() },
+                        description = state.description.takeIf { it.isNotBlank() },
+                        timeStep = state.timeStep,
+                        bookingLimit = state.bookingLimit,
+                        stickTime = state.stickTime,
+                        photo = state.photo.takeIf { it.isNotBlank() }
+                    ),
+                    token = "Bearer $token"
+                )
+
+                if (!updateResponse.isSuccessful) {
+                    _uiState.value = _uiState.value.copy(
+                        error = "Ошибка сохранения данных: ${updateResponse.code()}"
+                    )
+                    return@launch
+                }
+
+                // 2. Сохраняем услуги (галочки)
+                val serviceIds = state.services.filter { it.assigned }.map { it.id }
+                val servicesResponse = api.updateMasterServices(state.masterId, serviceIds, "Bearer $token")
+
+                if (!servicesResponse.isSuccessful) {
+                    _uiState.value = _uiState.value.copy(
+                        error = "Ошибка сохранения услуг: ${servicesResponse.code()}"
+                    )
+                    return@launch
+                }
+
+                // 3. Сохраняем график (weekDays)
                 val weekDaysData = state.weekDays.map { w ->
                     mapOf(
                         "dayOfWeek" to w.dayOfWeek,
@@ -476,15 +466,11 @@ class MasterDetailViewModel(application: Application) : AndroidViewModel(applica
                         "timeStep" to state.timeStep
                     )
                 }
-
-                // 2. Превращаем в JSON-строку
                 val weekDaysJson = Gson().toJson(weekDaysData)
 
-                // 3. Формируем dates (пока пустой список)
                 val datesData = emptyList<Map<String, Any>>()
                 val datesJson = Gson().toJson(datesData)
 
-                // 4. Отправляем как Map<String, String>
                 val response = api.saveAllSchedule(
                     id = state.masterId,
                     body = mapOf(
@@ -495,7 +481,6 @@ class MasterDetailViewModel(application: Application) : AndroidViewModel(applica
                 )
 
                 if (response.isSuccessful) {
-                    // Всё ок — закрываем экран
                     onSuccess()
                 } else {
                     _uiState.value = _uiState.value.copy(
@@ -504,7 +489,7 @@ class MasterDetailViewModel(application: Application) : AndroidViewModel(applica
                 }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
-                    error = e.localizedMessage ?: "Ошибка сохранения графика"
+                    error = e.localizedMessage ?: "Ошибка сохранения"
                 )
             }
         }
