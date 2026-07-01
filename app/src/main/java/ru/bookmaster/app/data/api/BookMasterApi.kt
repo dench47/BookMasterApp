@@ -1,5 +1,6 @@
 package ru.bookmaster.app.data.api
 
+import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -260,4 +261,10 @@ interface BookMasterApi {
         @Body body: Map<String, String>,
         @Header("Authorization") token: String
     ): Response<Map<String, String>>
+
+    @POST("api/companies/{id}/activate-premium")
+    suspend fun activatePremium(
+        @Path("id") id: Long,
+        @Header("Authorization") token: String
+    ): Response<ResponseBody>
 }

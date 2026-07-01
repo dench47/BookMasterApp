@@ -16,7 +16,6 @@ android {
         versionCode = 1
         versionName = "1.0"
 
-        buildConfigField("String", "BASE_URL", "\"${System.getenv("BOOKMASTER_BASE_URL") ?: "http://172.25.41.231:8080/"}\"")
     }
 
     buildTypes {
