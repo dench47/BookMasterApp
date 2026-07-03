@@ -39,6 +39,8 @@ import ru.bookmaster.app.ui.cabinet.CabinetScreen
 import ru.bookmaster.app.ui.cabinet.CabinetViewModel
 import ru.bookmaster.app.ui.clients.ClientDetailScreen
 import ru.bookmaster.app.ui.clients.ClientsScreen
+import ru.bookmaster.app.ui.home.AppointmentsScreen
+import ru.bookmaster.app.ui.home.DayAppointmentsScreen
 import ru.bookmaster.app.ui.home.HomeScreen
 import ru.bookmaster.app.ui.login.LoginScreen
 import ru.bookmaster.app.ui.masters.MasterDetailScreen
@@ -113,6 +115,23 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
+                    composable(
+                        "day_appointments/{date}",
+                        arguments = listOf(navArgument("date") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val date = backStackEntry.arguments?.getString("date") ?: ""
+                        DayAppointmentsScreen(
+                            dateString = date,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable("all_appointments") {
+                        AppointmentsScreen(
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+
                     composable("main") {
                         MainScreen(
                             selectedTab = selectedTab,
@@ -135,7 +154,13 @@ class MainActivity : ComponentActivity() {
                                 navController.navigate("masters")
                             },
                             onNavigateToPremium = { navController.navigate("premium") },
-                            cabinetViewModel = cabinetViewModel // Передаём общий ViewModel
+                            onNavigateToDayAppointments = { date ->
+                                navController.navigate("day_appointments/$date")
+                            },
+                            onNavigateToAllAppointments = {
+                                navController.navigate("all_appointments")
+                            },
+                            cabinetViewModel = cabinetViewModel
                         )
                     }
 
@@ -195,7 +220,7 @@ class MainActivity : ComponentActivity() {
                         PremiumScreen(
                             onBack = { navController.popBackStack() },
                             onPremiumActivated = {
-                                cabinetViewModel.refresh() // <--- Обновляем данные после активации
+                                cabinetViewModel.refresh()
                                 navController.popBackStack()
                             }
                         )
@@ -215,7 +240,9 @@ fun MainScreen(
     onNavigateToServices: () -> Unit,
     onNavigateToMasters: () -> Unit,
     onNavigateToPremium: () -> Unit,
-    cabinetViewModel: CabinetViewModel // <--- Принимаем общий ViewModel
+    onNavigateToDayAppointments: (String) -> Unit = {},
+    onNavigateToAllAppointments: () -> Unit = {},
+    cabinetViewModel: CabinetViewModel
 ) {
     Scaffold(
         bottomBar = {
@@ -249,7 +276,9 @@ fun MainScreen(
                 onNavigateToMasters = onNavigateToMasters,
                 onShareWebLink = {
                     // TODO
-                }
+                },
+                onNavigateToDayAppointments = onNavigateToDayAppointments,
+                onNavigateToAllAppointments = onNavigateToAllAppointments
             )
             1 -> ClientsScreen(
                 modifier = Modifier.padding(paddingValues),
@@ -264,7 +293,7 @@ fun MainScreen(
                 onNavigateToServices = onNavigateToServices,
                 onShareWebLink = { /* TODO */ },
                 onNavigateToPremium = onNavigateToPremium,
-                viewModel = cabinetViewModel // <--- Передаём общий ViewModel
+                viewModel = cabinetViewModel
             )
         }
     }

@@ -8,6 +8,10 @@ data class AppointmentResponse(
     val serviceName: String,
     val startTime: String,
     val endTime: String,
-    val confirmed: Boolean?,
-    val cancelled: Boolean?
+    val confirmed: Boolean? = false,
+    val cancelled: Boolean? = false,
+    val salonNotified: Boolean? = false,
+    val salonName: String? = null,
+    val masterId: Long? = null,
+    val serviceId: Long? = null
 )

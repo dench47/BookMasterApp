@@ -1,6 +1,7 @@
 package ru.bookmaster.app.ui.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -22,6 +23,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
+import ru.bookmaster.app.data.model.AppointmentResponse
+import ru.bookmaster.app.data.api.RetrofitClient
+import ru.bookmaster.app.data.model.Master
+import ru.bookmaster.app.util.TokenManager
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,6 +46,8 @@ fun HomeScreen(
     onNavigateToReviews: () -> Unit = {},
     onNavigateToHelp: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
+    onNavigateToDayAppointments: (String) -> Unit = {},
+    onNavigateToAllAppointments: () -> Unit = {},
     viewModel: HomeViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -70,6 +80,25 @@ fun HomeScreen(
         return
     }
 
+    // BottomSheet для ожидающих записей
+    if (uiState.isPendingSheetVisible) {
+        ModalBottomSheet(
+            onDismissRequest = { viewModel.hidePendingSheet() },
+            containerColor = Color(0xFF1E293B),
+            contentColor = Color.White
+        ) {
+            PendingAppointmentsSheetContent(
+                appointments = uiState.pendingAppointments.filter { !it.confirmed!! && !it.cancelled!! },
+                masters = uiState.masters,
+                onConfirm = { viewModel.confirmAppointment(it) },
+                onCancel = { viewModel.cancelAppointment(it) },
+                onEdit = { id, masterId, startTime -> viewModel.editAppointment(id, masterId, startTime) },
+                onMarkAllViewed = { viewModel.markAllViewed() },
+                onDismiss = { viewModel.hidePendingSheet() }
+            )
+        }
+    }
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -92,7 +121,7 @@ fun HomeScreen(
                     selected = false,
                     onClick = {
                         scope.launch { drawerState.close() }
-                        onNavigateToSchedule()
+                        onNavigateToAllAppointments()
                     },
                     colors = NavigationDrawerItemDefaults.colors(
                         selectedContainerColor = Color(0xFF38BDF8).copy(alpha = 0.2f)
@@ -141,7 +170,7 @@ fun HomeScreen(
                 if (!uiState.isMaster) {
                     NavigationDrawerItem(
                         label = { Text("Сотрудники", color = Color.White) },
-                        icon = { Icon(Icons.Default.Person, contentDescription = null, tint = Color(0xFF38BDF8)) },
+                        icon = { Icon(Icons.Default.Badge, contentDescription = null, tint = Color(0xFF38BDF8)) },
                         selected = false,
                         onClick = {
                             scope.launch { drawerState.close() }
@@ -181,7 +210,7 @@ fun HomeScreen(
 
                 NavigationDrawerItem(
                     label = { Text("Галерея", color = Color.White) },
-                    icon = { Icon(Icons.Default.Image, contentDescription = null, tint = Color(0xFF38BDF8)) },
+                    icon = { Icon(Icons.Default.PhotoLibrary, contentDescription = null, tint = Color(0xFF38BDF8)) },
                     selected = false,
                     onClick = {
                         scope.launch { drawerState.close() }
@@ -247,18 +276,22 @@ fun HomeScreen(
                     appointments = uiState.todayAppointments,
                     revenue = uiState.todayRevenue,
                     onFreeSlotsClick = { /* TODO */ },
-                    onScheduleClick = { /* TODO */ }
+                    onScheduleClick = { onNavigateToAllAppointments() }
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                NotificationsCard(newEventsCount = 0)
+                PendingAppointmentsCard(
+                    newEventsCount = uiState.newEventsCount,
+                    onClick = { viewModel.showPendingSheet() }
+                )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
                 WeekStatsCard(
                     weekStats = uiState.weekStats,
-                    totalWeekAppointments = uiState.weekStats.sumOf { it.appointments }
+                    totalWeekAppointments = uiState.weekStats.sumOf { it.appointments },
+                    onDayClick = { date -> onNavigateToDayAppointments(date) }
                 )
             }
         }
@@ -336,30 +369,387 @@ fun TodayCard(
 }
 
 @Composable
-fun NotificationsCard(newEventsCount: Int) {
+fun PendingAppointmentsCard(
+    newEventsCount: Int,
+    onClick: () -> Unit
+) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A))
+        colors = CardDefaults.cardColors(
+            containerColor = if (newEventsCount > 0) Color(0xFF1E3A5F) else Color(0xFF0F172A)
+        )
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.Notifications, tint = Color(0xFFFCD34D), contentDescription = null)
+            Icon(
+                Icons.Default.Notifications,
+                tint = if (newEventsCount > 0) Color(0xFFFCD34D) else Color(0xFF94A3B8),
+                contentDescription = null
+            )
             Spacer(modifier = Modifier.width(8.dp))
-            Text("$newEventsCount новых событий", color = Color(0xFF94A3B8), fontSize = 14.sp)
+            Text(
+                "$newEventsCount новых событий",
+                color = if (newEventsCount > 0) Color.White else Color(0xFF94A3B8),
+                fontSize = 14.sp,
+                fontWeight = if (newEventsCount > 0) FontWeight.Bold else FontWeight.Normal
+            )
+            if (newEventsCount > 0) {
+                Spacer(modifier = Modifier.width(8.dp))
+                Icon(
+                    Icons.Default.ChevronRight,
+                    tint = Color(0xFF38BDF8),
+                    contentDescription = "Подробнее"
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PendingAppointmentsSheetContent(
+    appointments: List<AppointmentResponse>,
+    masters: List<Master>,
+    onConfirm: (Long) -> Unit,
+    onCancel: (Long) -> Unit,
+    onEdit: (Long, Long?, String?) -> Unit,
+    onMarkAllViewed: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 32.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Ожидающие записи",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+            if (appointments.isNotEmpty()) {
+                TextButton(onClick = {
+                    onMarkAllViewed()
+                    onDismiss()
+                }) {
+                    Text("Отметить все", color = Color(0xFF38BDF8))
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            "${appointments.size} записей ожидают подтверждения",
+            color = Color(0xFF94A3B8),
+            fontSize = 14.sp
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        if (appointments.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(100.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Нет ожидающих записей", color = Color(0xFF94A3B8))
+            }
+        } else {
+            appointments.forEach { appointment ->
+                PendingAppointmentItem(
+                    appointment = appointment,
+                    masters = masters,
+                    onConfirm = { onConfirm(appointment.id) },
+                    onCancel = { onCancel(appointment.id) },
+                    onEdit = { masterId, startTime -> onEdit(appointment.id, masterId, startTime) }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
         }
     }
 }
 
 @Composable
+fun PendingAppointmentItem(
+    appointment: AppointmentResponse,
+    masters: List<Master>,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+    onEdit: (Long?, String?) -> Unit
+) {
+    var showEditDialog by remember { mutableStateOf(false) }
+    val formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A))
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    appointment.clientName,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    fontSize = 16.sp
+                )
+                Row {
+                    // Кнопка редактирования
+                    IconButton(
+                        onClick = { showEditDialog = true },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Edit,
+                            tint = Color(0xFF94A3B8),
+                            contentDescription = "Редактировать",
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFFFCD34D).copy(alpha = 0.2f)
+                    ) {
+                        Text(
+                            "Ожидает",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                            color = Color(0xFFFCD34D),
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Информация о записи
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.Phone,
+                    tint = Color(0xFF94A3B8),
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    appointment.clientPhone,
+                    color = Color(0xFF94A3B8),
+                    fontSize = 13.sp
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.Category,
+                    tint = Color(0xFF94A3B8),
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    "${appointment.serviceName} • ${appointment.masterName}",
+                    color = Color(0xFF94A3B8),
+                    fontSize = 13.sp
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.Schedule,
+                    tint = Color(0xFF94A3B8),
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    appointment.startTime,
+                    color = Color(0xFF94A3B8),
+                    fontSize = 13.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Кнопки действий
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onCancel,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFEF4444))
+                ) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Отменить", fontSize = 12.sp)
+                }
+                Button(
+                    onClick = onConfirm,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22C55E))
+                ) {
+                    Icon(
+                        Icons.Default.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Подтвердить", fontSize = 12.sp)
+                }
+            }
+        }
+    }
+
+    // Диалог редактирования
+    if (showEditDialog) {
+        EditAppointmentDialog(
+            appointment = appointment,
+            masters = masters,
+            onDismiss = { showEditDialog = false },
+            onSave = { masterId, startTime ->
+                onEdit(masterId, startTime)
+                showEditDialog = false
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditAppointmentDialog(
+    appointment: AppointmentResponse,
+    masters: List<Master>,
+    onDismiss: () -> Unit,
+    onSave: (Long?, String?) -> Unit
+) {
+    var selectedMasterId by remember { mutableStateOf<Long?>(appointment.masterId) }
+    var selectedTime by remember { mutableStateOf(appointment.startTime.take(16)) }
+    var expanded by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF1E293B),
+        title = { Text("Редактировать запись", color = Color.White) },
+        text = {
+            Column {
+                // Клиент
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Person, tint = Color(0xFF94A3B8), contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("${appointment.clientName} • ${appointment.clientPhone}", color = Color(0xFF94A3B8), fontSize = 14.sp)
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Услуга
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Category, tint = Color(0xFF94A3B8), contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(appointment.serviceName, color = Color(0xFF94A3B8), fontSize = 14.sp)
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Выбор мастера
+                Text("Мастер", color = Color.White, fontSize = 14.sp)
+                Spacer(modifier = Modifier.height(4.dp))
+                if (masters.isNotEmpty()) {
+                    ExposedDropdownMenuBox(
+                        expanded = expanded,
+                        onExpandedChange = { expanded = it }
+                    ) {
+                        OutlinedTextField(
+                            value = masters.find { it.id == selectedMasterId }?.name ?: appointment.masterName,
+                            onValueChange = {},
+                            readOnly = true,
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF38BDF8),
+                                unfocusedBorderColor = Color(0xFF334155)
+                            )
+                        )
+                        ExposedDropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false }
+                        ) {
+                            masters.forEach { master ->
+                                DropdownMenuItem(
+                                    text = { Text(master.name, color = Color.White) },
+                                    onClick = {
+                                        selectedMasterId = master.id
+                                        expanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    Text(appointment.masterName, color = Color(0xFF94A3B8), fontSize = 14.sp)
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Время
+                Text("Время", color = Color.White, fontSize = 14.sp)
+                Spacer(modifier = Modifier.height(4.dp))
+                OutlinedTextField(
+                    value = selectedTime,
+                    onValueChange = { selectedTime = it },
+                    placeholder = { Text("ГГГГ-ММ-ДДTЧЧ:ММ", color = Color(0xFF94A3B8)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFF38BDF8),
+                        unfocusedBorderColor = Color(0xFF334155)
+                    ),
+                    singleLine = true
+                )
+                Text("Формат: 2026-07-04T14:30", color = Color(0xFF94A3B8), fontSize = 11.sp)
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSave(selectedMasterId, if (selectedTime != appointment.startTime.take(16)) selectedTime else null) },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF38BDF8))
+            ) {
+                Text("Сохранить")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Отмена", color = Color(0xFF94A3B8))
+            }
+        }
+    )
+}
+
+@Composable
 fun WeekStatsCard(
     weekStats: List<WeekDayStat>,
-    totalWeekAppointments: Int
+    totalWeekAppointments: Int,
+    onDayClick: (String) -> Unit
 ) {
-    if (weekStats.isEmpty()) return
-
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -375,39 +765,51 @@ fun WeekStatsCard(
             }
             Spacer(modifier = Modifier.height(12.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                weekStats.forEach { day ->
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            day.dayOfWeekShort,
-                            color = Color(0xFF94A3B8),
-                            fontSize = 12.sp
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (day.appointments > 0) Color(0xFF38BDF8).copy(alpha = 0.2f)
-                                    else Color.Transparent
-                                ),
-                            contentAlignment = Alignment.Center
+            if (weekStats.isEmpty()) {
+                Text(
+                    "Нет данных на эту неделю",
+                    color = Color(0xFF94A3B8),
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    weekStats.forEach { day ->
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.clickable { onDayClick(day.date) }
                         ) {
                             Text(
-                                day.date.split("-").last(),
-                                color = if (day.appointments > 0) Color(0xFF38BDF8) else Color.White,
-                                fontWeight = if (day.appointments > 0) FontWeight.Bold else FontWeight.Normal
+                                day.dayOfWeekShort,
+                                color = Color(0xFF94A3B8),
+                                fontSize = 12.sp
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (day.appointments > 0) Color(0xFF38BDF8).copy(alpha = 0.2f)
+                                        else Color.Transparent
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    day.date.split("-").last(),
+                                    color = if (day.appointments > 0) Color(0xFF38BDF8) else Color.White,
+                                    fontWeight = if (day.appointments > 0) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                            Text(
+                                "${day.appointments}",
+                                color = Color(0xFF86EFAC),
+                                fontSize = 12.sp
                             )
                         }
-                        Text(
-                            "${day.appointments}",
-                            color = Color(0xFF86EFAC),
-                            fontSize = 12.sp
-                        )
                     }
                 }
             }

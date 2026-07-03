@@ -37,6 +37,25 @@ interface BookMasterApi {
         @Header("Authorization") token: String
     ): Response<List<AppointmentResponse>>
 
+    @GET("api/appointments/company/{companyId}/pending")
+    suspend fun getPendingAppointments(
+        @Path("companyId") companyId: Long,
+        @Header("Authorization") token: String
+    ): Response<List<AppointmentResponse>>
+
+    @GET("api/appointments/company/{companyId}/date")
+    suspend fun getAppointmentsByDate(
+        @Path("companyId") companyId: Long,
+        @Query("date") date: String,
+        @Header("Authorization") token: String
+    ): Response<List<AppointmentResponse>>
+
+    @PUT("api/appointments/company/{companyId}/mark-viewed")
+    suspend fun markAppointmentsViewed(
+        @Path("companyId") companyId: Long,
+        @Header("Authorization") token: String
+    ): Response<Unit>
+
     @PUT("api/appointments/{id}/confirm")
     suspend fun confirmAppointment(
         @Path("id") id: Long,
@@ -46,6 +65,13 @@ interface BookMasterApi {
     @PUT("api/appointments/{id}/cancel")
     suspend fun cancelAppointment(
         @Path("id") id: Long,
+        @Header("Authorization") token: String
+    ): Response<AppointmentResponse>
+
+    @PUT("api/appointments/{id}/edit")
+    suspend fun editAppointment(
+        @Path("id") id: Long,
+        @Body body: Map<String, @JvmSuppressWildcards Any>,
         @Header("Authorization") token: String
     ): Response<AppointmentResponse>
 
