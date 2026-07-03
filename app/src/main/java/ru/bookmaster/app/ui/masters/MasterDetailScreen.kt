@@ -1,7 +1,6 @@
 package ru.bookmaster.app.ui.masters
 
 import android.annotation.SuppressLint
-import android.app.Application
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -11,6 +10,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,17 +27,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import java.io.ByteArrayOutputStream
-import java.time.LocalTime
 import ru.bookmaster.app.R
+import com.commandiron.wheel_picker_compose.WheelTimePicker
 
 @SuppressLint("DefaultLocale")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -281,7 +284,7 @@ fun MasterDetailScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 8.dp),
+                                    .padding(vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
@@ -289,36 +292,43 @@ fun MasterDetailScreen(
                                     text = dayNames.getOrElse(day.dayOfWeek - 1) { day.dayName },
                                     color = if (day.isWorking) Color(0xFFE2E8F0) else Color(0xFF64748B),
                                     fontSize = 16.sp,
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
 
-                                if (day.isWorking) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                    ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(end = 8.dp)
+                                ) {
+                                    if (day.isWorking) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Text(
+                                                text = day.workStart,
+                                                color = Color(0xFF38BDF8),
+                                                fontSize = 15.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                modifier = Modifier.clickable { showStartPicker = true }
+                                            )
+                                            Text("—", color = Color(0xFF94A3B8))
+                                            Text(
+                                                text = day.workEnd,
+                                                color = Color(0xFF38BDF8),
+                                                fontSize = 15.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                modifier = Modifier.clickable { showEndPicker = true }
+                                            )
+                                        }
+                                    } else {
                                         Text(
-                                            text = day.workStart,
-                                            color = Color(0xFF38BDF8),
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.Medium,
-                                            modifier = Modifier.clickable { showStartPicker = true }
-                                        )
-                                        Text(" - ", color = Color(0xFF94A3B8))
-                                        Text(
-                                            text = day.workEnd,
-                                            color = Color(0xFF38BDF8),
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.Medium,
-                                            modifier = Modifier.clickable { showEndPicker = true }
+                                            text = "Выходной",
+                                            color = Color(0xFF64748B),
+                                            fontSize = 14.sp
                                         )
                                     }
-                                } else {
-                                    Text(
-                                        text = "Выходной",
-                                        color = Color(0xFF64748B),
-                                        fontSize = 16.sp
-                                    )
                                 }
 
                                 Switch(
@@ -329,31 +339,28 @@ fun MasterDetailScreen(
                                         checkedTrackColor = Color(0xFF38BDF8).copy(alpha = 0.4f),
                                         uncheckedThumbColor = Color(0xFF64748B),
                                         uncheckedTrackColor = Color(0xFF334155)
-                                    )
+                                    ),
+                                    modifier = Modifier.width(52.dp)
                                 )
                             }
 
                             if (showStartPicker) {
-                                MaterialTimePickerDialog(
-                                    initialHour = day.workStart.split(":").firstOrNull()?.toIntOrNull() ?: 9,
-                                    initialMinute = day.workStart.split(":").lastOrNull()?.toIntOrNull() ?: 0,
+                                CustomWheelTimePickerDialog(
+                                    initialValue = day.workStart,
                                     onDismiss = { showStartPicker = false },
-                                    onConfirm = { hour, minute ->
-                                        val formattedTime = String.format("%02d:%02d", hour, minute)
-                                        viewModel.updateWeekDay(day.dayOfWeek, "workStart", formattedTime)
+                                    onConfirm = { newTime ->
+                                        viewModel.updateWeekDay(day.dayOfWeek, "workStart", newTime)
                                         showStartPicker = false
                                     }
                                 )
                             }
 
                             if (showEndPicker) {
-                                MaterialTimePickerDialog(
-                                    initialHour = day.workEnd.split(":").firstOrNull()?.toIntOrNull() ?: 18,
-                                    initialMinute = day.workEnd.split(":").lastOrNull()?.toIntOrNull() ?: 0,
+                                CustomWheelTimePickerDialog(
+                                    initialValue = day.workEnd,
                                     onDismiss = { showEndPicker = false },
-                                    onConfirm = { hour, minute ->
-                                        val formattedTime = String.format("%02d:%02d", hour, minute)
-                                        viewModel.updateWeekDay(day.dayOfWeek, "workEnd", formattedTime)
+                                    onConfirm = { newTime ->
+                                        viewModel.updateWeekDay(day.dayOfWeek, "workEnd", newTime)
                                         showEndPicker = false
                                     }
                                 )
@@ -367,37 +374,48 @@ fun MasterDetailScreen(
 
                 // ===== 4. Выходные дни (календарь) =====
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "Выходные дни",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 12.dp),
+                            textAlign = TextAlign.Center
+                        )
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
+                            horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("📅 Выходные дни", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(onClick = { viewModel.prevMonth() }) {
-                                    Icon(Icons.Default.ArrowBack, contentDescription = "Назад", tint = Color(0xFF38BDF8))
-                                }
-                                Text(
-                                    viewModel.getMonthLabel(),
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 8.dp)
-                                )
-                                IconButton(onClick = { viewModel.nextMonth() }) {
-                                    Icon(Icons.Default.ArrowForward, contentDescription = "Вперед", tint = Color(0xFF38BDF8))
-                                }
+                            IconButton(onClick = { viewModel.prevMonth() }) {
+                                Icon(Icons.Default.ArrowBack, contentDescription = "Назад", tint = Color(0xFF38BDF8))
+                            }
+                            Text(
+                                viewModel.getMonthLabel(),
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            )
+                            IconButton(onClick = { viewModel.nextMonth() }) {
+                                Icon(Icons.Default.ArrowForward, contentDescription = "Вперед", tint = Color(0xFF38BDF8))
                             }
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
 
-                        val days = listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс")
+                        Spacer(modifier = Modifier.height(16.dp))
+
                         Row(modifier = Modifier.fillMaxWidth()) {
-                            days.forEach { day ->
+                            listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс").forEach { day ->
                                 Box(
                                     modifier = Modifier.weight(1f),
                                     contentAlignment = Alignment.Center
@@ -407,30 +425,34 @@ fun MasterDetailScreen(
                             }
                         }
 
+                        Spacer(modifier = Modifier.height(8.dp))
+
                         uiState.calendarDays.chunked(7).forEach { week ->
                             Row(modifier = Modifier.fillMaxWidth()) {
                                 week.forEach { day ->
-                                    Box(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .aspectRatio(1f)
-                                            .padding(2.dp)
-                                            .background(
-                                                if (day.isWorking == false) Color(0xFF7F1D1D).copy(alpha = 0.3f)
-                                                else Color.Transparent,
-                                                RoundedCornerShape(8.dp)
-                                            )
-                                            .clickable(enabled = !day.empty) {
-                                                if (!day.empty) viewModel.toggleDayOff(day.date)
-                                            },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        if (day.empty) {
-                                            // Пустая ячейка
-                                        } else {
+                                    if (day.empty) {
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .aspectRatio(1f)
+                                        )
+                                    } else {
+                                        val isDayOff = day.isWorking == false
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .aspectRatio(1f)
+                                                .padding(4.dp)
+                                                .background(
+                                                    if (isDayOff) Color(0xFF7F1D1D).copy(alpha = 0.4f) else Color.Transparent,
+                                                    RoundedCornerShape(12.dp)
+                                                )
+                                                .clickable { viewModel.toggleDayOff(day.date) },
+                                            contentAlignment = Alignment.Center
+                                        ) {
                                             Text(
                                                 day.label,
-                                                color = if (day.isWorking == false) Color(0xFFFCA5A5) else Color.White,
+                                                color = if (isDayOff) Color(0xFFFCA5A5) else Color(0xFFE2E8F0),
                                                 fontSize = 14.sp
                                             )
                                         }
@@ -441,41 +463,103 @@ fun MasterDetailScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // ===== 5. Настройки онлайн-записи =====
+// ===== 5. Настройки онлайн-записи =====
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text("⚙️ Настройки онлайн-записи", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // --- БАРАБАН ОТ БИБЛИОТЕКИ ---
+                        var showPickerDialog by remember { mutableStateOf(false) }
+                        val steps = (5..180 step 5).toList()
+                        val currentIndex = steps.indexOf(uiState.timeStep).coerceAtLeast(0)
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("Шаг времени (мин):", color = Color(0xFF94A3B8), fontSize = 13.sp)
-                            OutlinedTextField(
-                                value = uiState.timeStep.toString(),
-                                onValueChange = { viewModel.updateTimeStep(it) },
-                                modifier = Modifier.width(80.dp),
-                                singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White
+                            Text("Шаг времени (мин):", color = Color(0xFF94A3B8), fontSize = 14.sp)
+
+                            TextButton(
+                                onClick = { showPickerDialog = true },
+                                colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF38BDF8))
+                            ) {
+                                Text(
+                                    text = uiState.timeStep.toString(),
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold
                                 )
+                            }
+                        }
+
+                        if (showPickerDialog) {
+                            AlertDialog(
+                                onDismissRequest = { showPickerDialog = false },
+                                title = {
+                                    Text(
+                                        "Выберите шаг",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        textAlign = TextAlign.Center
+                                    )
+                                },
+                                text = {
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        // Правильный вызов для этой библиотеки
+                                        com.commandiron.wheel_picker_compose.WheelTimePicker(
+                                            startTime = java.time.LocalTime.of(0, uiState.timeStep),
+                                            textColor = Color(0xFF64748B),
+                                            selectorProperties = com.commandiron.wheel_picker_compose.core.WheelPickerDefaults.selectorProperties(
+                                                enabled = true,
+                                                color = Color(0xFF38BDF8).copy(alpha = 0.15f),
+                                                shape = RoundedCornerShape(8.dp)
+                                            ),
+                                            modifier = Modifier.height(200.dp),
+                                            textStyle = TextStyle(fontSize = 18.sp)
+                                        ) { time ->
+                                            // Здесь мы просто возвращаем строку для отображения в колесике.
+                                            // Ошибка уходит, потому что мы не вызываем @Composable функцию внутри лямбды.
+                                            time.minute.toString()
+                                        }
+                                    }
+                                },
+                                confirmButton = {
+                                    TextButton(
+                                        onClick = { showPickerDialog = false }
+                                    ) {
+                                        Text("Готово", color = Color(0xFF38BDF8), fontWeight = FontWeight.Bold)
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showPickerDialog = false }) {
+                                        Text("Отмена", color = Color(0xFF94A3B8))
+                                    }
+                                },
+                                containerColor = Color(0xFF1E293B),
+                                titleContentColor = Color.White
                             )
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // --- Ограничение записи ---
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("Ограничение записи:", color = Color(0xFF94A3B8), fontSize = 13.sp)
+                            Text("Ограничение записи:", color = Color(0xFF94A3B8), fontSize = 14.sp)
+
                             var expanded by remember { mutableStateOf(false) }
                             val options = listOf("none", "today_tomorrow", "today", "12h", "4h", "3h", "2h", "1h")
                             val labels = mapOf(
@@ -488,13 +572,22 @@ fun MasterDetailScreen(
                                 "2h" to "Менее 2 часов",
                                 "1h" to "Менее 1 часа"
                             )
+
                             Box {
-                                OutlinedButton(onClick = { expanded = true }) {
-                                    Text(labels[uiState.bookingLimit] ?: uiState.bookingLimit, color = Color.White)
+                                TextButton(
+                                    onClick = { expanded = true },
+                                    colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF38BDF8))
+                                ) {
+                                    Text(
+                                        text = labels[uiState.bookingLimit] ?: uiState.bookingLimit,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
                                 }
                                 DropdownMenu(
                                     expanded = expanded,
-                                    onDismissRequest = { expanded = false }
+                                    onDismissRequest = { expanded = false },
+                                    containerColor = Color(0xFF1E293B)
                                 ) {
                                     options.forEach { option ->
                                         DropdownMenuItem(
@@ -508,13 +601,16 @@ fun MasterDetailScreen(
                                 }
                             }
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // --- Прилипание времени ---
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("Прилипание времени:", color = Color(0xFF94A3B8), fontSize = 13.sp)
+                            Text("Прилипание времени:", color = Color(0xFF94A3B8), fontSize = 14.sp)
                             Switch(
                                 checked = uiState.stickTime,
                                 onCheckedChange = { viewModel.updateStickTime(it) }
@@ -522,8 +618,6 @@ fun MasterDetailScreen(
                         }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(12.dp))
 
                 // ===== 6. Перерывы =====
                 Card(
@@ -615,7 +709,8 @@ fun MasterDetailScreen(
                     }
                 ) {
                     Text("Удалить", color = Color(0xFFFCA5A5))
-                }            },
+                }
+            },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
                     Text("Отмена", color = Color(0xFF94A3B8))
@@ -637,7 +732,60 @@ fun MasterDetailScreen(
     }
 }
 
-// ===== Диалог добавления перерыва =====
+// ============================================================
+//  ВСПОМОГАТЕЛЬНЫЕ КОМПОНЕНТЫ (ЗА ПРЕДЕЛАМИ ОСНОВНОЙ ФУНКЦИИ)
+// ============================================================
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MaterialTimePickerDialog(
+    initialHour: Int,
+    initialMinute: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (hour: Int, minute: Int) -> Unit
+) {
+    val state = rememberTimePickerState(
+        initialHour = initialHour,
+        initialMinute = initialMinute,
+        is24Hour = true
+    )
+    Dialog(
+        onDismissRequest = onDismiss
+    ) {
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                TimePicker(
+                    state = state,
+                    layoutType = TimePickerLayoutType.Vertical
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Отмена", color = Color(0xFF94A3B8))
+                    }
+                    TextButton(
+                        onClick = {
+                            onConfirm(state.hour, state.minute)
+                            onDismiss()
+                        }
+                    ) {
+                        Text("Готово", color = Color(0xFF38BDF8))
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun AddBreakDialog(
     onDismiss: () -> Unit,
@@ -763,56 +911,73 @@ fun AddBreakDialog(
         },
         containerColor = Color(0xFF1E293B)
     )
-
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MaterialTimePickerDialog(
-    initialHour: Int,
-    initialMinute: Int,
+fun CustomWheelTimePickerDialog(
+    initialValue: String,
     onDismiss: () -> Unit,
-    onConfirm: (hour: Int, minute: Int) -> Unit
+    onConfirm: (String) -> Unit
 ) {
-    val state = rememberTimePickerState(
-        initialHour = initialHour,
-        initialMinute = initialMinute,
-        is24Hour = true
-    )
+    // Парсим "09:00" в часы и минуты
+    val parts = initialValue.split(":").map { it.toIntOrNull() ?: 0 }
+    val initialHour = parts.getOrElse(0) { 0 }.coerceIn(0, 23)
+    val initialMinute = parts.getOrElse(1) { 0 }.coerceIn(0, 59)
 
-    Dialog(
-        onDismissRequest = onDismiss
-    ) {
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+    // Заводим состояние, которое будет хранить текущее выбранное время
+    var selectedTime by remember { mutableStateOf(java.time.LocalTime.of(initialHour, initialMinute)) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                "Выберите время",
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+        },
+        text = {
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
             ) {
-                TimePicker(
-                    state = state,
-                    layoutType = TimePickerLayoutType.Vertical
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(onClick = onDismiss) {
-                        Text("Отмена", color = Color(0xFF94A3B8))
-                    }
-                    TextButton(
-                        onClick = {
-                            onConfirm(state.hour, state.minute)
-                            onDismiss()
-                        }
-                    ) {
-                        Text("Готово", color = Color(0xFF38BDF8))
-                    }
+                com.commandiron.wheel_picker_compose.WheelTimePicker(
+                    startTime = selectedTime,
+                    textColor = Color(0xFF64748B),
+                    selectorProperties = com.commandiron.wheel_picker_compose.core.WheelPickerDefaults.selectorProperties(
+                        enabled = true,
+                        color = Color(0xFF38BDF8).copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(8.dp)
+                    ),
+                    modifier = Modifier.height(200.dp),
+                    textStyle = TextStyle(fontSize = 18.sp)
+                ) { time ->
+                    // В этой лямбде библиотека отдает текущее значение при каждом движении
+                    selectedTime = time
+                    // Возвращаем строку для отображения
+                    String.format("%02d:%02d", time.hour, time.minute)
                 }
             }
-        }
-    }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    // Отдаем сохраненное значение
+                    onConfirm(String.format("%02d:%02d", selectedTime.hour, selectedTime.minute))
+                    onDismiss()
+                }
+            ) {
+                Text("Готово", color = Color(0xFF38BDF8), fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Отмена", color = Color(0xFF94A3B8))
+            }
+        },
+        containerColor = Color(0xFF1E293B),
+        titleContentColor = Color.White
+    )
 }

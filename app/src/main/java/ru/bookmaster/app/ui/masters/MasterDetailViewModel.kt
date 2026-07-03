@@ -174,11 +174,14 @@ class MasterDetailViewModel(application: Application) : AndroidViewModel(applica
         val month = _uiState.value.calendarMonth
         val firstDay = LocalDate.of(year, month, 1)
         val lastDay = firstDay.withDayOfMonth(firstDay.lengthOfMonth())
+
+        // Вычисляем, сколько пустых ячеек нужно в НАЧАЛЕ (чтобы сетка начиналась с Пн)
         val startDow = if (firstDay.dayOfWeek.value == 7) 6 else firstDay.dayOfWeek.value - 1
 
         val days = mutableListOf<CalendarDay>()
         repeat(startDow) { days.add(CalendarDay("", "", null, true)) }
 
+        // Заполняем реальные дни месяца
         var d = firstDay
         while (!d.isAfter(lastDay)) {
             val dateStr = d.toString()
@@ -188,9 +191,14 @@ class MasterDetailViewModel(application: Application) : AndroidViewModel(applica
             days.add(CalendarDay(dateStr, d.dayOfMonth.toString(), isWorking))
             d = d.plusDays(1)
         }
+
+        // ГЛАВНАЯ ФИКСА: ДОБАВЛЯЕМ ПУСТЫЕ ЯЧЕЙКИ В КОНЕЦ, ЧТОБЫ ПОСЛЕДНЯЯ НЕДЕЛЯ БЫЛА ПОЛНОЙ (7 ДНЕЙ)
+        while (days.size % 7 != 0) {
+            days.add(CalendarDay("", "", null, true))
+        }
+
         _uiState.value = _uiState.value.copy(calendarDays = days)
     }
-
     fun updateName(value: String) {
         _uiState.value = _uiState.value.copy(name = value)
     }
@@ -466,16 +474,11 @@ class MasterDetailViewModel(application: Application) : AndroidViewModel(applica
                         "timeStep" to state.timeStep
                     )
                 }
-                val weekDaysJson = Gson().toJson(weekDaysData)
-
-                val datesData = emptyList<Map<String, Any>>()
-                val datesJson = Gson().toJson(datesData)
 
                 val response = api.saveAllSchedule(
                     id = state.masterId,
                     body = mapOf(
-                        "weekDays" to weekDaysJson,
-                        "dates" to datesJson
+                        "weekDays" to weekDaysData
                     ),
                     token = "Bearer $token"
                 )
