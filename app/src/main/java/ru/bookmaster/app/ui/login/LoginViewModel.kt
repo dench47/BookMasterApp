@@ -45,14 +45,16 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
                 val response = api.loginByPhone(mapOf("phone" to phone))
                 if (response.isSuccessful) {
                     val body = response.body()!!
-                    tokenManager.saveAuthData(body.token, body.company.email, body.company.name, body.company.id)
-                    val prefs = getApplication<Application>().getSharedPreferences("premium_prefs", Context.MODE_PRIVATE)
-                    prefs.edit {
-                        putBoolean("is_premium", body.company.premium == true)
-                            .putInt("max_services", body.company.maxServices ?: 3)
-                            .putInt("max_booking_days", body.company.maxBookingDays ?: 7)
-                            .putBoolean("reminders_enabled", body.company.remindersEnabled == true)
-                    }
+                    tokenManager.saveAuthData(
+                        token = body.token,
+                        email = body.company.email,
+                        companyName = body.company.name,
+                        companyId = body.company.id,
+                        isPremium = body.company.premium == true,
+                        maxServices = body.company.maxServices ?: 3,
+                        maxBookingDays = body.company.maxBookingDays ?: 7,
+                        remindersEnabled = body.company.remindersEnabled == true
+                    )
                     _uiState.value = _uiState.value.copy(isLoading = false, isSuccess = true)
                     sendFcmToken(body.token)
                 } else {

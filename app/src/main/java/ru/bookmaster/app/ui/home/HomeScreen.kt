@@ -26,10 +26,31 @@ import kotlinx.coroutines.launch
 import ru.bookmaster.app.data.model.AppointmentResponse
 import ru.bookmaster.app.data.api.RetrofitClient
 import ru.bookmaster.app.data.model.Master
+import ru.bookmaster.app.ui.masters.CustomWheelTimePickerDialog
 import ru.bookmaster.app.util.TokenManager
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import androidx.compose.material3.DatePickerDefaults
+
+private fun formatDateTime(isoString: String): String {
+    return try {
+        val dateTime = LocalDateTime.parse(isoString.take(19))
+        dateTime.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"))
+    } catch (e: Exception) {
+        isoString
+    }
+}
+
+private fun isAppointmentPassed(startTime: String): Boolean {
+    return try {
+        val dateTime = LocalDateTime.parse(startTime.take(19))
+        dateTime.isBefore(LocalDateTime.now())
+    } catch (e: Exception) {
+        false
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -427,10 +448,9 @@ fun PendingAppointmentsSheetContent(
             .padding(horizontal = 16.dp)
             .padding(bottom = 32.dp)
     ) {
-        Row(
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 "Ожидающие записи",
@@ -438,7 +458,14 @@ fun PendingAppointmentsSheetContent(
                 fontWeight = FontWeight.Bold,
                 color = Color.White
             )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                "${appointments.size} записей ожидают подтверждения",
+                color = Color(0xFF94A3B8),
+                fontSize = 14.sp
+            )
             if (appointments.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
                 TextButton(onClick = {
                     onMarkAllViewed()
                     onDismiss()
@@ -447,13 +474,6 @@ fun PendingAppointmentsSheetContent(
                 }
             }
         }
-
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            "${appointments.size} записей ожидают подтверждения",
-            color = Color(0xFF94A3B8),
-            fontSize = 14.sp
-        )
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -490,7 +510,6 @@ fun PendingAppointmentItem(
     onEdit: (Long?, String?) -> Unit
 ) {
     var showEditDialog by remember { mutableStateOf(false) }
-    val formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -510,17 +529,19 @@ fun PendingAppointmentItem(
                     fontSize = 16.sp
                 )
                 Row {
-                    // Кнопка редактирования
-                    IconButton(
-                        onClick = { showEditDialog = true },
-                        modifier = Modifier.size(24.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Edit,
-                            tint = Color(0xFF94A3B8),
-                            contentDescription = "Редактировать",
-                            modifier = Modifier.size(16.dp)
-                        )
+                    // Кнопка редактирования — только для непрошедших записей
+                    if (!isAppointmentPassed(appointment.startTime)) {
+                        IconButton(
+                            onClick = { showEditDialog = true },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Edit,
+                                tint = Color(0xFF94A3B8),
+                                contentDescription = "Редактировать",
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
                     Surface(
                         shape = RoundedCornerShape(8.dp),
@@ -578,7 +599,7 @@ fun PendingAppointmentItem(
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    appointment.startTime,
+                    formatDateTime(appointment.startTime),
                     color = Color(0xFF94A3B8),
                     fontSize = 13.sp
                 )
@@ -645,9 +666,25 @@ fun EditAppointmentDialog(
     onDismiss: () -> Unit,
     onSave: (Long?, String?) -> Unit
 ) {
+    // Парсим начальную дату/время из appointment.startTime
+    val initialDateTime = remember {
+        try {
+            LocalDateTime.parse(appointment.startTime.take(19))
+        } catch (e: Exception) {
+            LocalDateTime.now()
+        }
+    }
+
+    var selectedDate by remember { mutableStateOf(initialDateTime.toLocalDate()) }
+    var selectedTime by remember { mutableStateOf(initialDateTime.toLocalTime()) }
     var selectedMasterId by remember { mutableStateOf<Long?>(appointment.masterId) }
-    var selectedTime by remember { mutableStateOf(appointment.startTime.take(16)) }
     var expanded by remember { mutableStateOf(false) }
+
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
+
+    val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
+    val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -711,26 +748,134 @@ fun EditAppointmentDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Время
-                Text("Время", color = Color.White, fontSize = 14.sp)
+// Дата и время — два кликабельных поля
+                Text("Дата и время", color = Color.White, fontSize = 14.sp)
                 Spacer(modifier = Modifier.height(4.dp))
-                OutlinedTextField(
-                    value = selectedTime,
-                    onValueChange = { selectedTime = it },
-                    placeholder = { Text("ГГГГ-ММ-ДДTЧЧ:ММ", color = Color(0xFF94A3B8)) },
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF38BDF8),
-                        unfocusedBorderColor = Color(0xFF334155)
-                    ),
-                    singleLine = true
-                )
-                Text("Формат: 2026-07-04T14:30", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Поле даты
+                    Box(modifier = Modifier.weight(1f)) {
+                        OutlinedTextField(
+                            value = selectedDate.format(dateFormatter),
+                            onValueChange = {},
+                            readOnly = true,
+                            enabled = false,
+                            label = { Text("Дата", color = Color(0xFF94A3B8)) },
+                            trailingIcon = {
+                                Icon(
+                                    Icons.Default.CalendarToday,
+                                    contentDescription = "Выбрать дату",
+                                    tint = Color(0xFF38BDF8)
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                disabledTextColor = Color.White,
+                                disabledBorderColor = Color(0xFF334155),
+                                disabledLabelColor = Color(0xFF94A3B8),
+                                disabledTrailingIconColor = Color(0xFF38BDF8)
+                            ),
+                            singleLine = true
+                        )
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clickable { showDatePicker = true }
+                        )
+                    }
+
+                    // Поле времени
+                    Box(modifier = Modifier.weight(1f)) {
+                        OutlinedTextField(
+                            value = selectedTime.format(timeFormatter),
+                            onValueChange = {},
+                            readOnly = true,
+                            enabled = false,
+                            label = { Text("Время", color = Color(0xFF94A3B8)) },
+                            trailingIcon = {
+                                Icon(
+                                    Icons.Default.Schedule,
+                                    contentDescription = "Выбрать время",
+                                    tint = Color(0xFF38BDF8)
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                disabledTextColor = Color.White,
+                                disabledBorderColor = Color(0xFF334155),
+                                disabledLabelColor = Color(0xFF94A3B8),
+                                disabledTrailingIconColor = Color(0xFF38BDF8)
+                            ),
+                            singleLine = true
+                        )
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clickable { showTimePicker = true }
+                        )
+                    }
+                }
+                // DatePicker диалог
+                if (showDatePicker) {
+                    val datePickerState = rememberDatePickerState(
+                        initialSelectedDateMillis = selectedDate
+                            .atStartOfDay(java.time.ZoneId.systemDefault())
+                            .toInstant()
+                            .toEpochMilli()
+                    )
+                    DatePickerDialog(
+                        onDismissRequest = { showDatePicker = false },
+                        confirmButton = {
+                            TextButton(
+                                onClick = {
+                                    datePickerState.selectedDateMillis?.let { millis ->
+                                        selectedDate = java.time.Instant.ofEpochMilli(millis)
+                                            .atZone(java.time.ZoneId.systemDefault())
+                                            .toLocalDate()
+                                    }
+                                    showDatePicker = false
+                                }
+                            ) {
+                                Text("OK", color = Color(0xFF38BDF8))
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showDatePicker = false }) {
+                                Text("Отмена", color = Color(0xFF94A3B8))
+                            }
+                        },
+                        colors = DatePickerDefaults.colors(containerColor = Color(0xFF1E293B))
+                    ) {
+                        DatePicker(state = datePickerState)
+                    }
+                }
+
+                // TimePicker диалог
+                if (showTimePicker) {
+                    CustomWheelTimePickerDialog(
+                        initialValue = selectedTime.format(timeFormatter),
+                        onDismiss = { showTimePicker = false },
+                        onConfirm = { newTime ->
+                            val parts = newTime.split(":").map { it.toIntOrNull() ?: 0 }
+                            selectedTime = LocalTime.of(parts.getOrElse(0) { 0 }, parts.getOrElse(1) { 0 })
+                            showTimePicker = false
+                        }
+                    )
+                }
             }
         },
         confirmButton = {
             Button(
-                onClick = { onSave(selectedMasterId, if (selectedTime != appointment.startTime.take(16)) selectedTime else null) },
+                onClick = {
+                    val newDateTime = LocalDateTime.of(selectedDate, selectedTime)
+                    val newStartTime = newDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"))
+                    onSave(
+                        selectedMasterId,
+                        if (newStartTime != appointment.startTime.take(16)) newStartTime else null
+                    )
+                },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF38BDF8))
             ) {
                 Text("Сохранить")
@@ -816,3 +961,5 @@ fun WeekStatsCard(
         }
     }
 }
+
+// Вспомогательные функции formatDateTime и isAppointmentPassed вынесены в top-level файла

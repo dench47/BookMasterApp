@@ -34,6 +34,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+
+private fun formatDateTime(isoString: String): String {
+    return try {
+        val dateTime = LocalDateTime.parse(isoString.take(19))
+        dateTime.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"))
+    } catch (e: Exception) {
+        isoString
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -186,14 +197,5 @@ fun ClientDetailScreen(
                 }
             }
         }
-    }
-}
-
-private fun formatDateTime(dateTime: String): String {
-    return try {
-        val parts = dateTime.substring(0, 10).split("-")
-        "${parts[2]}.${parts[1]}.${parts[0]} ${dateTime.substring(11, 16)}"
-    } catch (e: Exception) {
-        dateTime
     }
 }

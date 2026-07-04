@@ -18,9 +18,28 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import ru.bookmaster.app.data.model.AppointmentResponse
 import ru.bookmaster.app.data.model.Master
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
+
+private fun formatDateTime(isoString: String): String {
+    return try {
+        val dateTime = LocalDateTime.parse(isoString.take(19))
+        dateTime.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"))
+    } catch (e: Exception) {
+        isoString
+    }
+}
+
+private fun isAppointmentPassed(startTime: String): Boolean {
+    return try {
+        val dateTime = LocalDateTime.parse(startTime.take(19))
+        dateTime.isBefore(LocalDateTime.now())
+    } catch (e: Exception) {
+        false
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -172,23 +191,26 @@ fun DayAppointmentItem(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        appointment.startTime,
+                        formatDateTime(appointment.startTime),
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
                         fontSize = 14.sp
                     )
                 }
                 Row {
-                    IconButton(
-                        onClick = { showEditDialog = true },
-                        modifier = Modifier.size(24.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Edit,
-                            tint = Color(0xFF94A3B8),
-                            contentDescription = "Редактировать",
-                            modifier = Modifier.size(16.dp)
-                        )
+                    // Кнопка редактирования — только для непрошедших записей
+                    if (!isAppointmentPassed(appointment.startTime)) {
+                        IconButton(
+                            onClick = { showEditDialog = true },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Edit,
+                                tint = Color(0xFF94A3B8),
+                                contentDescription = "Редактировать",
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
                     Surface(
                         shape = RoundedCornerShape(8.dp),

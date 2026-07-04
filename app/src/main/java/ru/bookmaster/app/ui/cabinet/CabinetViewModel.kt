@@ -35,10 +35,6 @@ class CabinetViewModel(application: Application) : AndroidViewModel(application)
     private val _uiState = MutableStateFlow(CabinetUiState())
     val uiState = _uiState.asStateFlow()
 
-    init {
-        loadData()
-    }
-
     fun refresh() {
         loadData()
     }
@@ -68,7 +64,7 @@ class CabinetViewModel(application: Application) : AndroidViewModel(application)
                 // 4. Список услуг (servicesCount)
                 val servicesResponse = api.getServices(companyId, "Bearer $token")
                 val services = servicesResponse.body()
-                val servicesCount = services?.size ?: 0 // <--- Исправлено!
+                val servicesCount = services?.size ?: 0
 
                 // 5. Premium статус
                 val prefs = getApplication<Application>().getSharedPreferences("premium_prefs", Context.MODE_PRIVATE)
@@ -79,7 +75,7 @@ class CabinetViewModel(application: Application) : AndroidViewModel(application)
                     email = email,
                     phone = companyData?.get("phone") as? String ?: "",
                     address = companyData?.get("address") as? String ?: "",
-                    createdAt = companyData?.get("createdAt") as? String ?: "",
+                    createdAt = formatDate(companyData?.get("createdAt") as? String),
                     isMaster = companyType == "master",
                     totalClients = (clientsStatsData?.get("totalClients") as? Number)?.toInt() ?: 0,
                     totalMasters = (mastersStatsData?.get("totalMasters") as? Number)?.toInt() ?: 0,
@@ -93,6 +89,21 @@ class CabinetViewModel(application: Application) : AndroidViewModel(application)
                     isLoading = false,
                     error = e.localizedMessage ?: "Ошибка загрузки"
                 )
+            }
+        }
+    }
+
+    private fun formatDate(isoString: String?): String {
+        if (isoString.isNullOrBlank()) return ""
+        return try {
+            val dateTime = java.time.LocalDateTime.parse(isoString.take(19))
+            dateTime.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy"))
+        } catch (_: Exception) {
+            try {
+                val date = java.time.LocalDate.parse(isoString.take(10))
+                date.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy"))
+            } catch (_: Exception) {
+                isoString
             }
         }
     }
