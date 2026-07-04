@@ -19,6 +19,7 @@ import ru.bookmaster.app.util.TokenManager
 import java.net.HttpURLConnection
 import java.net.URL
 import java.time.LocalDate
+import androidx.core.content.edit
 
 data class HomeUiState(
     val companyName: String = "",
@@ -92,22 +93,22 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 val isPremium = premiumPrefs.getBoolean("is_premium", false)
 
                 val todayDeferred = async {
-                    try { api.getTodayStats(companyId, "Bearer $token") } catch (e: Exception) { null }
+                    try { api.getTodayStats(companyId, "Bearer $token") } catch (_: Exception) { null }
                 }
                 val weekDeferred = async {
-                    try { api.getWeekStats(companyId, getWeekStart(), "Bearer $token") } catch (e: Exception) { null }
+                    try { api.getWeekStats(companyId, getWeekStart(), "Bearer $token") } catch (_: Exception) { null }
                 }
                 val clientsStatsDeferred = async {
-                    try { api.getClientsStats(companyId, "Bearer $token") } catch (e: Exception) { null }
+                    try { api.getClientsStats(companyId, "Bearer $token") } catch (_: Exception) { null }
                 }
                 val mastersStatsDeferred = async {
-                    try { api.getMastersStats(companyId, "Bearer $token") } catch (e: Exception) { null }
+                    try { api.getMastersStats(companyId, "Bearer $token") } catch (_: Exception) { null }
                 }
                 val pendingDeferred = async {
-                    try { api.getPendingAppointments(companyId, "Bearer $token") } catch (e: Exception) { null }
+                    try { api.getPendingAppointments(companyId, "Bearer $token") } catch (_: Exception) { null }
                 }
                 val mastersDeferred = async {
-                    try { api.getMasters(companyId, "Bearer $token") } catch (e: Exception) { null }
+                    try { api.getMasters(companyId, "Bearer $token") } catch (_: Exception) { null }
                 }
 
                 val todayResponse = todayDeferred.await()
@@ -127,7 +128,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 val todayData = todayResponse?.body() ?: emptyMap()
-                val weekData = weekResponse?.body() ?: emptyList<Map<String, Any>>()
+                val weekData = weekResponse?.body() ?: emptyList()
                 val clientsData = clientsStatsResponse?.body() ?: emptyMap()
                 val mastersData = mastersStatsResponse?.body() ?: emptyMap()
                 val mastersList = mastersResponse?.body() ?: emptyList()
@@ -155,19 +156,19 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     isPendingSheetVisible = _uiState.value.isPendingSheetVisible,
                     masters = mastersList
                 )
-            } catch (e: java.net.SocketTimeoutException) {
+            } catch (_: java.net.SocketTimeoutException) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     isServerError = true,
                     serverErrorMessage = "Сервер не отвечает. Проверьте подключение."
                 )
-            } catch (e: java.net.ConnectException) {
+            } catch (_: java.net.ConnectException) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     isServerError = true,
                     serverErrorMessage = "Нет связи с сервером. Проверьте интернет."
                 )
-            } catch (e: java.net.UnknownHostException) {
+            } catch (_: java.net.UnknownHostException) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     isServerError = true,
@@ -239,16 +240,16 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun checkAndShowPendingFromNotification() {
-        val hasNew = appPrefs.getBoolean("has_new_appointment", false)
+        val showSheet = appPrefs.getBoolean("show_pending_sheet", false)
 
-        if (hasNew) {
-            appPrefs.edit().putBoolean("has_new_appointment", false).apply()
-            appPrefs.edit().putInt(BookMasterMessagingService.KEY_NEW_EVENTS_COUNT, 0).apply()
+        if (showSheet) {
+            appPrefs.edit { putBoolean("show_pending_sheet", false) }
+            appPrefs.edit { putInt(BookMasterMessagingService.KEY_NEW_EVENTS_COUNT, 0) }
 
             viewModelScope.launch {
                 loadAllData()
                 while (_uiState.value.isLoading) {
-                    kotlinx.coroutines.delay(50)
+                    delay(50)
                 }
                 _uiState.value = _uiState.value.copy(isPendingSheetVisible = true)
             }
@@ -306,6 +307,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             connection.connectTimeout = 3000
             connection.connect()
             connection.responseCode == 200
-        } catch (e: Exception) { false }
+        } catch (_: Exception) { false }
     }
 }

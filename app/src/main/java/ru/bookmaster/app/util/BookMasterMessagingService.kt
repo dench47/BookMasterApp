@@ -23,7 +23,7 @@ class BookMasterMessagingService : FirebaseMessagingService() {
     override fun onNewToken(token: String) {
         super.onNewToken(token)
         getSharedPreferences("fcm_prefs", MODE_PRIVATE)
-            .edit().putString("fcm_token", token).apply()
+            .edit { putString("fcm_token", token) }
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
@@ -31,8 +31,7 @@ class BookMasterMessagingService : FirebaseMessagingService() {
 
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         val currentCount = prefs.getInt(KEY_NEW_EVENTS_COUNT, 0)
-        prefs.edit().putInt(KEY_NEW_EVENTS_COUNT, currentCount + 1).apply()
-        prefs.edit().putBoolean("has_new_appointment", true).apply()
+        prefs.edit { putInt(KEY_NEW_EVENTS_COUNT, currentCount + 1) }
 
         val title = message.data["title"] ?: "BookMaster"
         val body = message.data["body"] ?: "Новая запись"
@@ -53,6 +52,10 @@ class BookMasterMessagingService : FirebaseMessagingService() {
     }
 
     private fun showNotification(title: String, body: String) {
+        // Ставим флаг в SharedPreferences — ТОЛЬКО когда показываем уведомление (приложение в фоне/закрыто)
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            .edit { putBoolean("show_pending_sheet", true) }
+
         val intent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }

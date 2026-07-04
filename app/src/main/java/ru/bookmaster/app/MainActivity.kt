@@ -259,12 +259,6 @@ fun MainScreen(
     cabinetViewModel: CabinetViewModel,
     homeViewModel: HomeViewModel = viewModel()
 ) {
-    // При переключении на вкладку "Записи" проверяем флаг FCM
-    LaunchedEffect(selectedTab) {
-        if (selectedTab == 0) {
-            homeViewModel.checkAndShowPendingFromNotification()
-        }
-    }
     Scaffold(
         bottomBar = {
             NavigationBar {
