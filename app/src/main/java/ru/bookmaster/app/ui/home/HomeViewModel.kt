@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import ru.bookmaster.app.data.api.RetrofitClient
 import ru.bookmaster.app.data.model.AppointmentResponse
 import ru.bookmaster.app.data.model.Master
+import ru.bookmaster.app.util.BookMasterMessagingService
 import ru.bookmaster.app.util.TokenManager
 import java.net.HttpURLConnection
 import java.net.URL
@@ -23,30 +24,23 @@ data class HomeUiState(
     val companyName: String = "",
     val isLoading: Boolean = false,
     val error: String? = null,
-    // Блок "Сегодня"
     val todayDate: String = "",
     val todayAppointments: Int = 0,
     val todayRevenue: String = "0",
-    // Блок "Неделя"
     val weekStats: List<WeekDayStat> = emptyList(),
-    // Блок "Клиенты"
     val totalClients: Int = 0,
     val newClientsThisMonth: Int = 0,
     val sleepingClients: Int = 0,
-    // Блок "Сотрудники"
     val totalMasters: Int = 0,
     val activeMasters: Int = 0,
-    // Premium
     val isPremium: Boolean = false,
     val webBookingUrl: String = "",
     val isMaster: Boolean = false,
     val isServerError: Boolean = false,
     val serverErrorMessage: String? = null,
-    // Новые записи (ожидающие подтверждения)
     val pendingAppointments: List<AppointmentResponse> = emptyList(),
     val newEventsCount: Int = 0,
     val isPendingSheetVisible: Boolean = false,
-    // Список мастеров для редактирования
     val masters: List<Master> = emptyList()
 )
 
@@ -62,16 +56,29 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val tokenManager = TokenManager(application)
     private val api = RetrofitClient.instance
-    private val prefs = application.getSharedPreferences("premium_prefs", android.content.Context.MODE_PRIVATE)
+    private val premiumPrefs = application.getSharedPreferences("premium_prefs", android.content.Context.MODE_PRIVATE)
+    private val appPrefs = application.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
 
     private var retryJob: Job? = null
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState = _uiState.asStateFlow()
 
+    private val prefListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == BookMasterMessagingService.KEY_NEW_EVENTS_COUNT) {
+            loadAllData()
+        }
+    }
+
     init {
+        appPrefs.registerOnSharedPreferenceChangeListener(prefListener)
         loadAllData()
         startRetryOnConnection()
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        appPrefs.unregisterOnSharedPreferenceChangeListener(prefListener)
     }
 
     fun loadAllData() {
@@ -82,9 +89,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 val companyId = tokenManager.companyId.first() ?: 0L
                 val companyType = tokenManager.companyType.first() ?: "salon"
                 val companyName = tokenManager.companyName.first() ?: ""
-                val isPremium = prefs.getBoolean("is_premium", false)
+                val isPremium = premiumPrefs.getBoolean("is_premium", false)
 
-                // Параллельно загружаем все данные
                 val todayDeferred = async {
                     try { api.getTodayStats(companyId, "Bearer $token") } catch (e: Exception) { null }
                 }
@@ -111,7 +117,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 val pendingResponse = pendingDeferred.await()
                 val mastersResponse = mastersDeferred.await()
 
-                // Если все запросы вернули null - сервер недоступен
                 if (todayResponse == null && weekResponse == null && clientsStatsResponse == null && mastersStatsResponse == null) {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -127,10 +132,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 val mastersData = mastersStatsResponse?.body() ?: emptyMap()
                 val mastersList = mastersResponse?.body() ?: emptyList()
 
-                // Пендинг записи
                 val pendingList = pendingResponse?.body() ?: emptyList()
-                val notNotifiedPending = pendingList.filter { it.salonNotified != true }
-                val newEventsCount = notNotifiedPending.size
+                val newEventsCount = pendingList.size
 
                 _uiState.value = HomeUiState(
                     companyName = companyName,
@@ -232,6 +235,23 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 api.markAppointmentsViewed(companyId, "Bearer $token")
                 loadAllData()
             } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+
+    fun checkAndShowPendingFromNotification() {
+        val hasNew = appPrefs.getBoolean("has_new_appointment", false)
+
+        if (hasNew) {
+            appPrefs.edit().putBoolean("has_new_appointment", false).apply()
+            appPrefs.edit().putInt(BookMasterMessagingService.KEY_NEW_EVENTS_COUNT, 0).apply()
+
+            viewModelScope.launch {
+                loadAllData()
+                while (_uiState.value.isLoading) {
+                    kotlinx.coroutines.delay(50)
+                }
+                _uiState.value = _uiState.value.copy(isPendingSheetVisible = true)
+            }
         }
     }
 

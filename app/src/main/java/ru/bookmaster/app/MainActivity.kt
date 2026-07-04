@@ -1,6 +1,7 @@
 package ru.bookmaster.app
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -19,8 +20,9 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -42,6 +44,7 @@ import ru.bookmaster.app.ui.clients.ClientsScreen
 import ru.bookmaster.app.ui.home.AppointmentsScreen
 import ru.bookmaster.app.ui.home.DayAppointmentsScreen
 import ru.bookmaster.app.ui.home.HomeScreen
+import ru.bookmaster.app.ui.home.HomeViewModel
 import ru.bookmaster.app.ui.login.LoginScreen
 import ru.bookmaster.app.ui.masters.MasterDetailScreen
 import ru.bookmaster.app.ui.masters.MastersScreen
@@ -57,6 +60,10 @@ class MainActivity : ComponentActivity() {
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { _ -> }
+
+    private val homeViewModel: HomeViewModel by lazy {
+        HomeViewModel(application)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -77,9 +84,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             BookMasterTheme {
                 val navController = rememberNavController()
-                var selectedTab by remember { mutableStateOf(0) }
-
-                // Создаём общий экземпляр CabinetViewModel для всех экранов
+                var selectedTab by remember { mutableIntStateOf(0) }
                 val cabinetViewModel: CabinetViewModel = viewModel()
 
                 NavHost(
@@ -133,6 +138,10 @@ class MainActivity : ComponentActivity() {
                     }
 
                     composable("main") {
+                        LaunchedEffect(Unit) {
+                            homeViewModel.checkAndShowPendingFromNotification()
+                        }
+
                         MainScreen(
                             selectedTab = selectedTab,
                             onTabSelected = { selectedTab = it },
@@ -160,7 +169,8 @@ class MainActivity : ComponentActivity() {
                             onNavigateToAllAppointments = {
                                 navController.navigate("all_appointments")
                             },
-                            cabinetViewModel = cabinetViewModel
+                            cabinetViewModel = cabinetViewModel,
+                            homeViewModel = homeViewModel
                         )
                     }
 
@@ -215,7 +225,6 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // Экран Premium
                     composable("premium") {
                         PremiumScreen(
                             onBack = { navController.popBackStack() },
@@ -228,6 +237,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        homeViewModel.checkAndShowPendingFromNotification()
     }
 }
 
@@ -242,8 +256,15 @@ fun MainScreen(
     onNavigateToPremium: () -> Unit,
     onNavigateToDayAppointments: (String) -> Unit = {},
     onNavigateToAllAppointments: () -> Unit = {},
-    cabinetViewModel: CabinetViewModel
+    cabinetViewModel: CabinetViewModel,
+    homeViewModel: HomeViewModel = viewModel()
 ) {
+    // При переключении на вкладку "Записи" проверяем флаг FCM
+    LaunchedEffect(selectedTab) {
+        if (selectedTab == 0) {
+            homeViewModel.checkAndShowPendingFromNotification()
+        }
+    }
     Scaffold(
         bottomBar = {
             NavigationBar {
@@ -270,15 +291,12 @@ fun MainScreen(
     ) { paddingValues ->
         when (selectedTab) {
             0 -> HomeScreen(
-                onNavigateToClients = {
-                    onTabSelected(1)
-                },
+                onNavigateToClients = { onTabSelected(1) },
                 onNavigateToMasters = onNavigateToMasters,
-                onShareWebLink = {
-                    // TODO
-                },
+                onShareWebLink = {},
                 onNavigateToDayAppointments = onNavigateToDayAppointments,
-                onNavigateToAllAppointments = onNavigateToAllAppointments
+                onNavigateToAllAppointments = onNavigateToAllAppointments,
+                viewModel = homeViewModel
             )
             1 -> ClientsScreen(
                 modifier = Modifier.padding(paddingValues),
@@ -291,7 +309,7 @@ fun MainScreen(
                 onNavigateToClients = { onTabSelected(1) },
                 onNavigateToMasters = onNavigateToMasters,
                 onNavigateToServices = onNavigateToServices,
-                onShareWebLink = { /* TODO */ },
+                onShareWebLink = {},
                 onNavigateToPremium = onNavigateToPremium,
                 viewModel = cabinetViewModel
             )

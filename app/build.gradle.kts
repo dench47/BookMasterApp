@@ -89,6 +89,6 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
     implementation("com.github.commandiron:WheelPickerCompose:1.1.8")
-
+    implementation("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
 
 }
