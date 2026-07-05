@@ -502,6 +502,7 @@ fun PendingAppointmentsSheetContent(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PendingAppointmentItem(
     appointment: AppointmentResponse,
@@ -511,124 +512,107 @@ fun PendingAppointmentItem(
     onEdit: (Long?, String?) -> Unit
 ) {
     var showEditDialog by remember { mutableStateOf(false) }
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { false }
+    )
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A))
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+    SwipeToDismissBox(
+        state = dismissState,
+        backgroundContent = {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFF334155)),
+                contentAlignment = Alignment.CenterEnd
             ) {
-                Text(
-                    appointment.clientName,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    fontSize = 16.sp
-                )
-                Row {
-                    if (!isAppointmentPassed(appointment.startTime)) {
-                        IconButton(
-                            onClick = { showEditDialog = true },
-                            modifier = Modifier.size(24.dp)
+                Row(
+                    modifier = Modifier.padding(end = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = onCancel,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text("Отменить", fontSize = 12.sp)
+                    }
+                    Button(
+                        onClick = onConfirm,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22C55E)),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text("Подтвердить", fontSize = 12.sp)
+                    }
+                }
+            }
+        },
+        enableDismissFromStartToEnd = false,
+        enableDismissFromEndToStart = true
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A))
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        appointment.clientName,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        fontSize = 16.sp
+                    )
+                    Row {
+                        if (!isAppointmentPassed(appointment.startTime)) {
+                            IconButton(
+                                onClick = { showEditDialog = true },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Edit,
+                                    tint = Color(0xFF94A3B8),
+                                    contentDescription = "Редактировать",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFFFCD34D).copy(alpha = 0.2f)
                         ) {
-                            Icon(
-                                Icons.Default.Edit,
-                                tint = Color(0xFF94A3B8),
-                                contentDescription = "Редактировать",
-                                modifier = Modifier.size(16.dp)
+                            Text(
+                                "Ожидает",
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                color = Color(0xFFFCD34D),
+                                fontSize = 12.sp
                             )
                         }
                     }
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFFFCD34D).copy(alpha = 0.2f)
-                    ) {
-                        Text(
-                            "Ожидает",
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                            color = Color(0xFFFCD34D),
-                            fontSize = 12.sp
-                        )
-                    }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Default.Phone,
-                    tint = Color(0xFF94A3B8),
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    appointment.clientPhone,
-                    color = Color(0xFF94A3B8),
-                    fontSize = 13.sp
-                )
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Default.Category,
-                    tint = Color(0xFF94A3B8),
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    "${appointment.serviceName} • ${appointment.masterName}",
-                    color = Color(0xFF94A3B8),
-                    fontSize = 13.sp
-                )
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Default.Schedule,
-                    tint = Color(0xFF94A3B8),
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    formatDateTime(appointment.startTime),
-                    color = Color(0xFF94A3B8),
-                    fontSize = 13.sp
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedButton(
-                    onClick = onCancel,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFEF4444))
-                ) {
-                    Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Phone, tint = Color(0xFF94A3B8), contentDescription = null, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Отменить", fontSize = 12.sp)
+                    Text(appointment.clientPhone, color = Color(0xFF94A3B8), fontSize = 13.sp)
                 }
-                Button(
-                    onClick = onConfirm,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22C55E))
-                ) {
-                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Category, tint = Color(0xFF94A3B8), contentDescription = null, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Подтвердить", fontSize = 12.sp)
+                    Text("${appointment.serviceName} • ${appointment.masterName}", color = Color(0xFF94A3B8), fontSize = 13.sp)
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Schedule, tint = Color(0xFF94A3B8), contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(formatDateTime(appointment.startTime), color = Color(0xFF94A3B8), fontSize = 13.sp)
                 }
             }
         }
@@ -638,14 +622,14 @@ fun PendingAppointmentItem(
         EditAppointmentDialog(
             appointment = appointment,
             masters = masters,
-            onDismiss = { },
+            onDismiss = { showEditDialog = false },
             onSave = { masterId, startTime ->
                 onEdit(masterId, startTime)
+                showEditDialog = false
             }
         )
     }
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CancelledAppointmentItem(
