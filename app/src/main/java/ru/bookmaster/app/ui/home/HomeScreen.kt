@@ -638,14 +638,8 @@ fun CancelledAppointmentItem(
     appointment: AppointmentResponse,
     onDismissed: () -> Unit
 ) {
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.EndToStart) {
-                onDismissed()
-                false  // возвращаем false, не даём анимации SwipeToDismiss завершиться
-            } else false
-        }
-    )
+    val dismissState = rememberSwipeToDismissBoxState()
+    val scope = rememberCoroutineScope()
 
     SwipeToDismissBox(
         state = dismissState,
@@ -671,41 +665,33 @@ fun CancelledAppointmentItem(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B).copy(alpha = 0.5f))
         ) {
             Row(
                 modifier = Modifier.padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    Icons.Default.Cancel,
-                    tint = Color(0xFFFCA5A5),
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
-                )
+                Icon(Icons.Default.Cancel, tint = Color(0xFFFCA5A5), contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "❌ ${appointment.clientName} отменил(а) запись",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
-                    )
-                    Text(
-                        "${appointment.serviceName} • ${appointment.masterName}",
-                        color = Color(0xFF94A3B8),
-                        fontSize = 13.sp
-                    )
-                    Text(
-                        formatDateTime(appointment.startTime),
-                        color = Color(0xFF94A3B8),
-                        fontSize = 12.sp
-                    )
+                    Text("❌ ${appointment.clientName} отменил(а) запись", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text("${appointment.serviceName} • ${appointment.masterName}", color = Color(0xFF94A3B8), fontSize = 13.sp)
+                    Text(formatDateTime(appointment.startTime), color = Color(0xFF94A3B8), fontSize = 12.sp)
                 }
             }
         }
     }
+
+    // Отслеживаем завершение свайпа
+    LaunchedEffect(dismissState.currentValue) {
+        if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
+            onDismissed()
+            scope.launch { dismissState.snapTo(SwipeToDismissBoxValue.Settled) }
+        }
+    }
 }
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditAppointmentDialog(
