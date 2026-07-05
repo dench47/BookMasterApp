@@ -1,5 +1,8 @@
 package ru.bookmaster.app.ui.home
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -506,10 +509,15 @@ fun PendingAppointmentItem(
     onCancel: () -> Unit
 ) {
     var opened by remember { mutableStateOf(false) }
-    var offsetX by remember { mutableStateOf(0f) }
-    var totalShift by remember { mutableStateOf(0f) }
+    var offsetX by remember { mutableFloatStateOf(0f) }
+    var totalShift by remember { mutableFloatStateOf(0f) }
+    var showCancelDialog by remember { mutableStateOf(false) }
     val density = LocalDensity.current
     val paddingPx = with(density) { 12.dp.toPx() }
+    val animatedOffset by animateFloatAsState(
+        targetValue = offsetX,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
+    )
 
     Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))) {
         Box(
@@ -534,23 +542,39 @@ fun PendingAppointmentItem(
                 ) { Text("Подтвердить", fontSize = 13.sp, color = Color(0xFF0F172A)) }
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedButton(
-                    onClick = { opened = false; offsetX = 0f; onCancel() },
+                    onClick = { showCancelDialog = true },
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF94A3B8)),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    modifier = Modifier.onSizeChanged { size ->
-                        if (size.width.toFloat() + paddingPx * 2 > totalShift) {
-                            totalShift = size.width.toFloat() + paddingPx * 2
-                        }
-                    }
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                 ) { Text("Отменить", fontSize = 13.sp) }
+
+// Диалог подтверждения:
+                if (showCancelDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showCancelDialog = false },
+                        title = { Text("Отменить запись?", color = Color.White) },
+                        text = { Text("${appointment.clientName} • ${appointment.serviceName}", color = Color(0xFF94A3B8)) },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                showCancelDialog = false
+                                opened = false
+                                offsetX = 0f
+                                onCancel()
+                            }) { Text("Отменить", color = Color(0xFFFCA5A5)) }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showCancelDialog = false }) { Text("Назад", color = Color(0xFF94A3B8)) }
+                        },
+                        containerColor = Color(0xFF1E293B)
+                    )
+                }
             }
         }
 
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .offset { IntOffset(offsetX.toInt().coerceIn(-totalShift.toInt(), 0), 0) }
+                .offset { IntOffset(animatedOffset.toInt().coerceIn(-totalShift.toInt(), 0), 0) }
                 .pointerInput(Unit) {
                     detectHorizontalDragGestures(
                         onDragEnd = {
