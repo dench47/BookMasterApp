@@ -491,13 +491,14 @@ fun PendingAppointmentsSheetContent(
 
             // Отмены клиентом
             cancelledAppointments.forEach { appointment ->
-                CancelledAppointmentItem(
-                    appointment = appointment,
-                    onDismissed = { onDismissCancelled(appointment.id) }
-                )
+                key(appointment.id) {
+                    CancelledAppointmentItem(
+                        appointment = appointment,
+                        onDismissed = { onDismissCancelled(appointment.id) }
+                    )
+                }
                 Spacer(modifier = Modifier.height(8.dp))
-            }
-        }
+            }        }
     }
 }
 
@@ -637,15 +638,15 @@ fun PendingAppointmentItem(
         EditAppointmentDialog(
             appointment = appointment,
             masters = masters,
-            onDismiss = { showEditDialog = false },
+            onDismiss = { },
             onSave = { masterId, startTime ->
                 onEdit(masterId, startTime)
-                showEditDialog = false
             }
         )
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CancelledAppointmentItem(
     appointment: AppointmentResponse,
@@ -655,7 +656,7 @@ fun CancelledAppointmentItem(
         confirmValueChange = { value ->
             if (value == SwipeToDismissBoxValue.EndToStart) {
                 onDismissed()
-                true
+                false  // возвращаем false, не даём анимации SwipeToDismiss завершиться
             } else false
         }
     )
@@ -666,14 +667,15 @@ fun CancelledAppointmentItem(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFF7F1D1D), RoundedCornerShape(12.dp))
-                    .padding(horizontal = 20.dp),
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFF334155)),
                 contentAlignment = Alignment.CenterEnd
             ) {
                 Icon(
                     Icons.Default.Check,
                     contentDescription = "Скрыть",
-                    tint = Color.White
+                    tint = Color(0xFF94A3B8),
+                    modifier = Modifier.padding(end = 20.dp)
                 )
             }
         },
@@ -683,7 +685,7 @@ fun CancelledAppointmentItem(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B).copy(alpha = 0.5f))
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
         ) {
             Row(
                 modifier = Modifier.padding(12.dp),
@@ -718,7 +720,6 @@ fun CancelledAppointmentItem(
         }
     }
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditAppointmentDialog(
