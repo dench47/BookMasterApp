@@ -227,10 +227,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
                 val pendingList = pendingResponse?.body() ?: _uiState.value.pendingAppointments
                 val cancelledList = cancelledResponse?.body() ?: _uiState.value.cancelledAppointments
+                val cancelledCount = appPrefs.getInt(BookMasterMessagingService.KEY_CANCELLED_COUNT, 0)
 
                 _uiState.value = _uiState.value.copy(
                     pendingAppointments = pendingList,
-                    cancelledAppointments = cancelledList
+                    cancelledAppointments = cancelledList,
+                    newEventsCount = pendingList.size,
+                    cancelledByClientCount = cancelledCount,
+                    totalEventsCount = pendingList.size + cancelledCount
                 )
             } catch (_: Exception) { }
         }
@@ -245,7 +249,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val token = tokenManager.token.first() ?: ""
                 api.confirmAppointment(appointmentId, "Bearer $token")
-                loadAllData()
+                loadEventsData()
             } catch (e: Exception) { e.printStackTrace() }
         }
     }
@@ -255,7 +259,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val token = tokenManager.token.first() ?: ""
                 api.cancelAppointment(appointmentId, "Bearer $token")
-                loadAllData()
+                loadEventsData()
             } catch (e: Exception) { e.printStackTrace() }
         }
     }
@@ -270,7 +274,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 if (body.isNotEmpty()) {
                     api.editAppointment(appointmentId, body, "Bearer $token")
                 }
-                loadAllData()
+                loadEventsData()
             } catch (e: Exception) { e.printStackTrace() }
         }
     }
