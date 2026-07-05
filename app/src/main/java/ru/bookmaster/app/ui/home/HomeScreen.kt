@@ -506,8 +506,8 @@ fun PendingAppointmentItem(
     onCancel: () -> Unit
 ) {
     var opened by remember { mutableStateOf(false) }
-    var offsetX by remember { mutableFloatStateOf(0f) }
-    var totalShift by remember { mutableFloatStateOf(0f) }
+    var offsetX by remember { mutableStateOf(0f) }
+    var totalShift by remember { mutableStateOf(0f) }
     val density = LocalDensity.current
     val paddingPx = with(density) { 12.dp.toPx() }
 
@@ -572,6 +572,9 @@ fun PendingAppointmentItem(
                     if (opened) {
                         opened = false
                         offsetX = 0f
+                    } else {
+                        opened = true
+                        offsetX = -totalShift
                     }
                 },
             shape = RoundedCornerShape(12.dp),
