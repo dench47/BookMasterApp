@@ -83,6 +83,7 @@ dependencies {
 
     implementation("io.coil-kt:coil-compose:2.6.0")
     implementation(libs.androidx.ui.text)
+    implementation(libs.androidx.ui.unit)
 
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")

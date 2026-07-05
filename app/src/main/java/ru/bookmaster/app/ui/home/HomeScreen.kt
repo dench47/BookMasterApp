@@ -2,6 +2,7 @@ package ru.bookmaster.app.ui.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -17,8 +18,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -26,7 +31,6 @@ import kotlinx.coroutines.launch
 import ru.bookmaster.app.data.model.AppointmentResponse
 import ru.bookmaster.app.data.model.Master
 import ru.bookmaster.app.ui.masters.CustomWheelTimePickerDialog
-import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -35,7 +39,7 @@ private fun formatDateTime(isoString: String): String {
     return try {
         val dateTime = LocalDateTime.parse(isoString.take(19))
         dateTime.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"))
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         isoString
     }
 }
@@ -44,7 +48,7 @@ private fun isAppointmentPassed(startTime: String): Boolean {
     return try {
         val dateTime = LocalDateTime.parse(startTime.take(19))
         dateTime.isBefore(LocalDateTime.now())
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         false
     }
 }
@@ -108,12 +112,9 @@ fun HomeScreen(
             PendingAppointmentsSheetContent(
                 pendingAppointments = uiState.pendingAppointments.filter { !it.confirmed!! && !it.cancelled!! },
                 cancelledAppointments = uiState.cancelledAppointments,
-                masters = uiState.masters,
                 onConfirm = { viewModel.confirmAppointment(it) },
                 onCancel = { viewModel.cancelAppointment(it) },
-                onEdit = { id, masterId, startTime -> viewModel.editAppointment(id, masterId, startTime) },
-                onDismissCancelled = { viewModel.dismissCancelledAppointment(it) },
-                onDismiss = { viewModel.hidePendingSheet() }
+                onDismissCancelled = { viewModel.dismissCancelledAppointment(it) }
             )
         }
     }
@@ -434,12 +435,9 @@ fun PendingAppointmentsCard(
 fun PendingAppointmentsSheetContent(
     pendingAppointments: List<AppointmentResponse>,
     cancelledAppointments: List<AppointmentResponse>,
-    masters: List<Master>,
     onConfirm: (Long) -> Unit,
     onCancel: (Long) -> Unit,
-    onEdit: (Long, Long?, String?) -> Unit,
-    onDismissCancelled: (Long) -> Unit,
-    onDismiss: () -> Unit
+    onDismissCancelled: (Long) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -481,10 +479,8 @@ fun PendingAppointmentsSheetContent(
             pendingAppointments.forEach { appointment ->
                 PendingAppointmentItem(
                     appointment = appointment,
-                    masters = masters,
                     onConfirm = { onConfirm(appointment.id) },
-                    onCancel = { onCancel(appointment.id) },
-                    onEdit = { masterId, startTime -> onEdit(appointment.id, masterId, startTime) }
+                    onCancel = { onCancel(appointment.id) }
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             }
@@ -506,54 +502,80 @@ fun PendingAppointmentsSheetContent(
 @Composable
 fun PendingAppointmentItem(
     appointment: AppointmentResponse,
-    masters: List<Master>,
     onConfirm: () -> Unit,
-    onCancel: () -> Unit,
-    onEdit: (Long?, String?) -> Unit
+    onCancel: () -> Unit
 ) {
-    var showEditDialog by remember { mutableStateOf(false) }
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { false }
-    )
+    var opened by remember { mutableStateOf(false) }
+    var offsetX by remember { mutableFloatStateOf(0f) }
+    var totalShift by remember { mutableFloatStateOf(0f) }
+    val density = LocalDensity.current
+    val paddingPx = with(density) { 12.dp.toPx() }
 
-    SwipeToDismissBox(
-        state = dismissState,
-        backgroundContent = {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFF334155)),
-                contentAlignment = Alignment.CenterEnd
+    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF334155), RoundedCornerShape(12.dp))
+                .padding(end = 12.dp),
+            contentAlignment = Alignment.CenterEnd
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                Row(
-                    modifier = Modifier.padding(end = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Button(
-                        onClick = onCancel,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Text("Отменить", fontSize = 12.sp)
+                Button(
+                    onClick = { opened = false; offsetX = 0f; onConfirm() },
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF38BDF8)),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    modifier = Modifier.onSizeChanged { size ->
+                        totalShift = size.width.toFloat() + paddingPx * 2
                     }
-                    Button(
-                        onClick = onConfirm,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22C55E)),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Text("Подтвердить", fontSize = 12.sp)
+                ) { Text("Подтвердить", fontSize = 13.sp, color = Color(0xFF0F172A)) }
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = { opened = false; offsetX = 0f; onCancel() },
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF94A3B8)),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    modifier = Modifier.onSizeChanged { size ->
+                        if (size.width.toFloat() + paddingPx * 2 > totalShift) {
+                            totalShift = size.width.toFloat() + paddingPx * 2
+                        }
                     }
-                }
+                ) { Text("Отменить", fontSize = 13.sp) }
             }
-        },
-        enableDismissFromStartToEnd = false,
-        enableDismissFromEndToStart = true
-    ) {
+        }
+
         Card(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(offsetX.toInt().coerceIn(-totalShift.toInt(), 0), 0) }
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            if (offsetX < -totalShift * 0.5f) {
+                                opened = true
+                                offsetX = -totalShift
+                            } else {
+                                opened = false
+                                offsetX = 0f
+                            }
+                        },
+                        onDragCancel = {},
+                        onHorizontalDrag = { _, dragAmount ->
+                            offsetX = (offsetX + dragAmount).coerceIn(-totalShift, 0f)
+                        }
+                    )
+                }
+                .clickable {
+                    if (opened) {
+                        opened = false
+                        offsetX = 0f
+                    }
+                },
             shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A))
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
                 Row(
@@ -561,46 +583,10 @@ fun PendingAppointmentItem(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        appointment.clientName,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        fontSize = 16.sp
-                    )
-                    Row {
-                        if (!isAppointmentPassed(appointment.startTime)) {
-                            IconButton(
-                                onClick = { showEditDialog = true },
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Edit,
-                                    tint = Color(0xFF94A3B8),
-                                    contentDescription = "Редактировать",
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFFFCD34D).copy(alpha = 0.2f)
-                        ) {
-                            Text(
-                                "Ожидает",
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                color = Color(0xFFFCD34D),
-                                fontSize = 12.sp
-                            )
-                        }
+                    Text(appointment.clientName, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 16.sp)
+                    Surface(shape = RoundedCornerShape(8.dp), color = Color(0xFFFCD34D).copy(alpha = 0.2f)) {
+                        Text("Ожидает", modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp), color = Color(0xFFFCD34D), fontSize = 12.sp)
                     }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Phone, tint = Color(0xFF94A3B8), contentDescription = null, modifier = Modifier.size(14.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(appointment.clientPhone, color = Color(0xFF94A3B8), fontSize = 13.sp)
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -617,19 +603,8 @@ fun PendingAppointmentItem(
             }
         }
     }
-
-    if (showEditDialog) {
-        EditAppointmentDialog(
-            appointment = appointment,
-            masters = masters,
-            onDismiss = { showEditDialog = false },
-            onSave = { masterId, startTime ->
-                onEdit(masterId, startTime)
-                showEditDialog = false
-            }
-        )
-    }
 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CancelledAppointmentItem(
