@@ -293,4 +293,22 @@ interface BookMasterApi {
         @Path("id") id: Long,
         @Header("Authorization") token: String
     ): Response<ResponseBody>
+
+    @GET("api/appointments/company/{companyId}/cancelled-by-client")
+    suspend fun getCancelledByClientAppointments(
+        @Path("companyId") companyId: Long,
+        @Header("Authorization") token: String
+    ): Response<List<AppointmentResponse>>
+
+    @PUT("api/appointments/company/{companyId}/mark-cancelled-viewed")
+    suspend fun markCancelledViewed(
+        @Path("companyId") companyId: Long,
+        @Header("Authorization") token: String
+    ): Response<Unit>
+
+    @PUT("api/appointments/{id}/mark-viewed")
+    suspend fun markAppointmentViewed(
+        @Path("id") id: Long,
+        @Header("Authorization") token: String
+    ): Response<Unit>
 }

@@ -13,6 +13,7 @@ class BookMasterMessagingService : FirebaseMessagingService() {
     companion object {
         const val PREFS_NAME = "app_prefs"
         const val KEY_NEW_EVENTS_COUNT = "new_events_count"
+        const val KEY_CANCELLED_COUNT = "cancelled_by_client_count"
     }
 
     override fun onCreate() {
@@ -30,11 +31,21 @@ class BookMasterMessagingService : FirebaseMessagingService() {
         super.onMessageReceived(message)
 
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        val currentCount = prefs.getInt(KEY_NEW_EVENTS_COUNT, 0)
-        prefs.edit { putInt(KEY_NEW_EVENTS_COUNT, currentCount + 1) }
+        val type = message.data["type"] ?: ""
+
+        when (type) {
+            "CLIENT_CANCELLED" -> {
+                val currentCount = prefs.getInt(KEY_CANCELLED_COUNT, 0)
+                prefs.edit { putInt(KEY_CANCELLED_COUNT, currentCount + 1) }
+            }
+            else -> {
+                val currentCount = prefs.getInt(KEY_NEW_EVENTS_COUNT, 0)
+                prefs.edit { putInt(KEY_NEW_EVENTS_COUNT, currentCount + 1) }
+            }
+        }
 
         val title = message.data["title"] ?: "BookMaster"
-        val body = message.data["body"] ?: "Новая запись"
+        val body = message.data["body"] ?: "Новое событие"
         showNotification(title, body)
     }
 
@@ -52,7 +63,6 @@ class BookMasterMessagingService : FirebaseMessagingService() {
     }
 
     private fun showNotification(title: String, body: String) {
-        // Ставим флаг в SharedPreferences — ТОЛЬКО когда показываем уведомление (приложение в фоне/закрыто)
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
             .edit { putBoolean("show_pending_sheet", true) }
 

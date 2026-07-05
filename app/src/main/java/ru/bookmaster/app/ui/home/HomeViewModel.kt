@@ -40,7 +40,10 @@ data class HomeUiState(
     val isServerError: Boolean = false,
     val serverErrorMessage: String? = null,
     val pendingAppointments: List<AppointmentResponse> = emptyList(),
+    val cancelledAppointments: List<AppointmentResponse> = emptyList(),
     val newEventsCount: Int = 0,
+    val cancelledByClientCount: Int = 0,
+    val totalEventsCount: Int = 0,
     val isPendingSheetVisible: Boolean = false,
     val masters: List<Master> = emptyList()
 )
@@ -66,8 +69,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     val uiState = _uiState.asStateFlow()
 
     private val prefListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key == BookMasterMessagingService.KEY_NEW_EVENTS_COUNT) {
-            loadAllData()
+        when (key) {
+            BookMasterMessagingService.KEY_NEW_EVENTS_COUNT -> loadAllData()
+            BookMasterMessagingService.KEY_CANCELLED_COUNT -> {
+                val count = appPrefs.getInt(BookMasterMessagingService.KEY_CANCELLED_COUNT, 0)
+                _uiState.value = _uiState.value.copy(
+                    cancelledByClientCount = count,
+                    totalEventsCount = _uiState.value.newEventsCount + count
+                )
+            }
         }
     }
 
@@ -107,6 +117,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 val pendingDeferred = async {
                     try { api.getPendingAppointments(companyId, "Bearer $token") } catch (_: Exception) { null }
                 }
+                val cancelledDeferred = async {
+                    try { api.getCancelledByClientAppointments(companyId, "Bearer $token") } catch (_: Exception) { null }
+                }
                 val mastersDeferred = async {
                     try { api.getMasters(companyId, "Bearer $token") } catch (_: Exception) { null }
                 }
@@ -116,6 +129,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 val clientsStatsResponse = clientsStatsDeferred.await()
                 val mastersStatsResponse = mastersStatsDeferred.await()
                 val pendingResponse = pendingDeferred.await()
+                val cancelledResponse = cancelledDeferred.await()
                 val mastersResponse = mastersDeferred.await()
 
                 if (todayResponse == null && weekResponse == null && clientsStatsResponse == null && mastersStatsResponse == null) {
@@ -134,7 +148,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 val mastersList = mastersResponse?.body() ?: emptyList()
 
                 val pendingList = pendingResponse?.body() ?: emptyList()
+                val cancelledList = cancelledResponse?.body() ?: emptyList()
                 val newEventsCount = pendingList.size
+                val cancelledCount = appPrefs.getInt(BookMasterMessagingService.KEY_CANCELLED_COUNT, 0)
 
                 _uiState.value = HomeUiState(
                     companyName = companyName,
@@ -152,7 +168,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     webBookingUrl = "http://your-server.com/salon/$companyId",
                     isMaster = companyType == "master",
                     pendingAppointments = pendingList,
+                    cancelledAppointments = cancelledList,
                     newEventsCount = newEventsCount,
+                    cancelledByClientCount = cancelledCount,
+                    totalEventsCount = newEventsCount + cancelledCount,
                     isPendingSheetVisible = _uiState.value.isPendingSheetVisible,
                     masters = mastersList
                 )
@@ -187,6 +206,34 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun showPendingSheet() {
         _uiState.value = _uiState.value.copy(isPendingSheetVisible = true)
+        loadEventsData()
+    }
+
+    private fun loadEventsData() {
+        viewModelScope.launch {
+            try {
+                val token = tokenManager.token.first() ?: ""
+                val companyId = tokenManager.companyId.first() ?: return@launch
+
+                val pendingDeferred = async {
+                    try { api.getPendingAppointments(companyId, "Bearer $token") } catch (_: Exception) { null }
+                }
+                val cancelledDeferred = async {
+                    try { api.getCancelledByClientAppointments(companyId, "Bearer $token") } catch (_: Exception) { null }
+                }
+
+                val pendingResponse = pendingDeferred.await()
+                val cancelledResponse = cancelledDeferred.await()
+
+                val pendingList = pendingResponse?.body() ?: _uiState.value.pendingAppointments
+                val cancelledList = cancelledResponse?.body() ?: _uiState.value.cancelledAppointments
+
+                _uiState.value = _uiState.value.copy(
+                    pendingAppointments = pendingList,
+                    cancelledAppointments = cancelledList
+                )
+            } catch (_: Exception) { }
+        }
     }
 
     fun hidePendingSheet() {
@@ -228,16 +275,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun markAllViewed() {
-        viewModelScope.launch {
-            try {
-                val token = tokenManager.token.first() ?: ""
-                val companyId = tokenManager.companyId.first() ?: 0L
-                api.markAppointmentsViewed(companyId, "Bearer $token")
-                loadAllData()
-            } catch (e: Exception) { e.printStackTrace() }
-        }
-    }
 
     fun checkAndShowPendingFromNotification() {
         val showSheet = appPrefs.getBoolean("show_pending_sheet", false)
@@ -251,7 +288,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 while (_uiState.value.isLoading) {
                     delay(50)
                 }
-                _uiState.value = _uiState.value.copy(isPendingSheetVisible = true)
+                _uiState.value = _uiState.value.copy(
+                    isPendingSheetVisible = true,
+                    cancelledByClientCount = 0,
+                    totalEventsCount = _uiState.value.newEventsCount
+                )
             }
         }
     }
@@ -309,4 +350,24 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             connection.responseCode == 200
         } catch (_: Exception) { false }
     }
+
+    fun dismissCancelledAppointment(appointmentId: Long) {
+        viewModelScope.launch {
+            try {
+                val token = tokenManager.token.first() ?: ""
+                api.markAppointmentViewed(appointmentId, "Bearer $token")
+
+                val updatedCancelled = _uiState.value.cancelledAppointments.filter { it.id != appointmentId }
+                // Синхронизируем SharedPreferences с реальным состоянием
+                appPrefs.edit { putInt(BookMasterMessagingService.KEY_CANCELLED_COUNT, updatedCancelled.size) }
+
+                _uiState.value = _uiState.value.copy(
+                    cancelledAppointments = updatedCancelled,
+                    cancelledByClientCount = updatedCancelled.size,
+                    totalEventsCount = _uiState.value.newEventsCount + updatedCancelled.size
+                )
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
 }
+

@@ -24,15 +24,12 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import ru.bookmaster.app.data.model.AppointmentResponse
-import ru.bookmaster.app.data.api.RetrofitClient
 import ru.bookmaster.app.data.model.Master
 import ru.bookmaster.app.ui.masters.CustomWheelTimePickerDialog
-import ru.bookmaster.app.util.TokenManager
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
-import androidx.compose.material3.DatePickerDefaults
 
 private fun formatDateTime(isoString: String): String {
     return try {
@@ -101,7 +98,7 @@ fun HomeScreen(
         return
     }
 
-    // BottomSheet для ожидающих записей
+    // BottomSheet для событий
     if (uiState.isPendingSheetVisible) {
         ModalBottomSheet(
             onDismissRequest = { viewModel.hidePendingSheet() },
@@ -109,12 +106,13 @@ fun HomeScreen(
             contentColor = Color.White
         ) {
             PendingAppointmentsSheetContent(
-                appointments = uiState.pendingAppointments.filter { !it.confirmed!! && !it.cancelled!! },
+                pendingAppointments = uiState.pendingAppointments.filter { !it.confirmed!! && !it.cancelled!! },
+                cancelledAppointments = uiState.cancelledAppointments,
                 masters = uiState.masters,
                 onConfirm = { viewModel.confirmAppointment(it) },
                 onCancel = { viewModel.cancelAppointment(it) },
                 onEdit = { id, masterId, startTime -> viewModel.editAppointment(id, masterId, startTime) },
-                onMarkAllViewed = { viewModel.markAllViewed() },
+                onDismissCancelled = { viewModel.dismissCancelledAppointment(it) },
                 onDismiss = { viewModel.hidePendingSheet() }
             )
         }
@@ -296,14 +294,14 @@ fun HomeScreen(
                     date = uiState.todayDate,
                     appointments = uiState.todayAppointments,
                     revenue = uiState.todayRevenue,
-                    onFreeSlotsClick = { /* TODO */ },
+                    onFreeSlotsClick = { },
                     onScheduleClick = { onNavigateToAllAppointments() }
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
                 PendingAppointmentsCard(
-                    newEventsCount = uiState.newEventsCount,
+                    newEventsCount = uiState.totalEventsCount,
                     onClick = { viewModel.showPendingSheet() }
                 )
 
@@ -434,12 +432,13 @@ fun PendingAppointmentsCard(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PendingAppointmentsSheetContent(
-    appointments: List<AppointmentResponse>,
+    pendingAppointments: List<AppointmentResponse>,
+    cancelledAppointments: List<AppointmentResponse>,
     masters: List<Master>,
     onConfirm: (Long) -> Unit,
     onCancel: (Long) -> Unit,
     onEdit: (Long, Long?, String?) -> Unit,
-    onMarkAllViewed: () -> Unit,
+    onDismissCancelled: (Long) -> Unit,
     onDismiss: () -> Unit
 ) {
     Column(
@@ -453,47 +452,48 @@ fun PendingAppointmentsSheetContent(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                "Ожидающие записи",
+                "События",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                "${appointments.size} записей ожидают подтверждения",
+                "${pendingAppointments.size + cancelledAppointments.size} событий",
                 color = Color(0xFF94A3B8),
                 fontSize = 14.sp
             )
-            if (appointments.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                TextButton(onClick = {
-                    onMarkAllViewed()
-                    onDismiss()
-                }) {
-                    Text("Отметить все", color = Color(0xFF38BDF8))
-                }
-            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (appointments.isEmpty()) {
+        if (pendingAppointments.isEmpty() && cancelledAppointments.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(100.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Нет ожидающих записей", color = Color(0xFF94A3B8))
+                Text("Нет новых событий", color = Color(0xFF94A3B8))
             }
         } else {
-            appointments.forEach { appointment ->
+            // Новые записи
+            pendingAppointments.forEach { appointment ->
                 PendingAppointmentItem(
                     appointment = appointment,
                     masters = masters,
                     onConfirm = { onConfirm(appointment.id) },
                     onCancel = { onCancel(appointment.id) },
                     onEdit = { masterId, startTime -> onEdit(appointment.id, masterId, startTime) }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            // Отмены клиентом
+            cancelledAppointments.forEach { appointment ->
+                CancelledAppointmentItem(
+                    appointment = appointment,
+                    onDismissed = { onDismissCancelled(appointment.id) }
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             }
@@ -529,7 +529,6 @@ fun PendingAppointmentItem(
                     fontSize = 16.sp
                 )
                 Row {
-                    // Кнопка редактирования — только для непрошедших записей
                     if (!isAppointmentPassed(appointment.startTime)) {
                         IconButton(
                             onClick = { showEditDialog = true },
@@ -559,7 +558,6 @@ fun PendingAppointmentItem(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Информация о записи
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     Icons.Default.Phone,
@@ -607,7 +605,6 @@ fun PendingAppointmentItem(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Кнопки действий
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -618,11 +615,7 @@ fun PendingAppointmentItem(
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFEF4444))
                 ) {
-                    Icon(
-                        Icons.Default.Close,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
+                    Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Отменить", fontSize = 12.sp)
                 }
@@ -632,11 +625,7 @@ fun PendingAppointmentItem(
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF22C55E))
                 ) {
-                    Icon(
-                        Icons.Default.Check,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
+                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Подтвердить", fontSize = 12.sp)
                 }
@@ -644,7 +633,6 @@ fun PendingAppointmentItem(
         }
     }
 
-    // Диалог редактирования
     if (showEditDialog) {
         EditAppointmentDialog(
             appointment = appointment,
@@ -658,6 +646,79 @@ fun PendingAppointmentItem(
     }
 }
 
+@Composable
+fun CancelledAppointmentItem(
+    appointment: AppointmentResponse,
+    onDismissed: () -> Unit
+) {
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == SwipeToDismissBoxValue.EndToStart) {
+                onDismissed()
+                true
+            } else false
+        }
+    )
+
+    SwipeToDismissBox(
+        state = dismissState,
+        backgroundContent = {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF7F1D1D), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 20.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Icon(
+                    Icons.Default.Check,
+                    contentDescription = "Скрыть",
+                    tint = Color.White
+                )
+            }
+        },
+        enableDismissFromStartToEnd = false,
+        enableDismissFromEndToStart = true
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B).copy(alpha = 0.5f))
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.Cancel,
+                    tint = Color(0xFFFCA5A5),
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "❌ ${appointment.clientName} отменил(а) запись",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                    Text(
+                        "${appointment.serviceName} • ${appointment.masterName}",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 13.sp
+                    )
+                    Text(
+                        formatDateTime(appointment.startTime),
+                        color = Color(0xFF94A3B8),
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditAppointmentDialog(
@@ -666,7 +727,6 @@ fun EditAppointmentDialog(
     onDismiss: () -> Unit,
     onSave: (Long?, String?) -> Unit
 ) {
-    // Парсим начальную дату/время из appointment.startTime
     val initialDateTime = remember {
         try {
             LocalDateTime.parse(appointment.startTime.take(19))
@@ -692,7 +752,6 @@ fun EditAppointmentDialog(
         title = { Text("Редактировать запись", color = Color.White) },
         text = {
             Column {
-                // Клиент
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Person, tint = Color(0xFF94A3B8), contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(8.dp))
@@ -700,7 +759,6 @@ fun EditAppointmentDialog(
                 }
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Услуга
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Category, tint = Color(0xFF94A3B8), contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(8.dp))
@@ -708,7 +766,6 @@ fun EditAppointmentDialog(
                 }
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Выбор мастера
                 Text("Мастер", color = Color.White, fontSize = 14.sp)
                 Spacer(modifier = Modifier.height(4.dp))
                 if (masters.isNotEmpty()) {
@@ -748,14 +805,12 @@ fun EditAppointmentDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-// Дата и время — два кликабельных поля
                 Text("Дата и время", color = Color.White, fontSize = 14.sp)
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Поле даты
                     Box(modifier = Modifier.weight(1f)) {
                         OutlinedTextField(
                             value = selectedDate.format(dateFormatter),
@@ -786,7 +841,6 @@ fun EditAppointmentDialog(
                         )
                     }
 
-                    // Поле времени
                     Box(modifier = Modifier.weight(1f)) {
                         OutlinedTextField(
                             value = selectedTime.format(timeFormatter),
@@ -817,7 +871,7 @@ fun EditAppointmentDialog(
                         )
                     }
                 }
-                // DatePicker диалог
+
                 if (showDatePicker) {
                     val datePickerState = rememberDatePickerState(
                         initialSelectedDateMillis = selectedDate
@@ -852,7 +906,6 @@ fun EditAppointmentDialog(
                     }
                 }
 
-                // TimePicker диалог
                 if (showTimePicker) {
                     CustomWheelTimePickerDialog(
                         initialValue = selectedTime.format(timeFormatter),
@@ -961,5 +1014,3 @@ fun WeekStatsCard(
         }
     }
 }
-
-// Вспомогательные функции formatDateTime и isAppointmentPassed вынесены в top-level файла
