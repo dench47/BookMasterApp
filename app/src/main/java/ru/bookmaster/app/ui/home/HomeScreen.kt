@@ -448,56 +448,49 @@ fun PendingAppointmentsSheetContent(
             .padding(horizontal = 16.dp)
             .padding(bottom = 32.dp)
     ) {
+        // Заголовок — фиксированный
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                "События",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
+            Text("События", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
             Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                "${pendingAppointments.size + cancelledAppointments.size} событий",
-                color = Color(0xFF94A3B8),
-                fontSize = 14.sp
-            )
+            Text("${pendingAppointments.size + cancelledAppointments.size} событий", color = Color(0xFF94A3B8), fontSize = 14.sp)
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (pendingAppointments.isEmpty() && cancelledAppointments.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(100.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("Нет новых событий", color = Color(0xFF94A3B8))
-            }
-        } else {
-            // Новые записи
-            pendingAppointments.forEach { appointment ->
-                PendingAppointmentItem(
-                    appointment = appointment,
-                    onConfirm = { onConfirm(appointment.id) },
-                    onCancel = { onCancel(appointment.id) }
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            // Отмены клиентом
-            cancelledAppointments.forEach { appointment ->
-                key(appointment.id) {
-                    CancelledAppointmentItem(
-                        appointment = appointment,
-                        onDismissed = { onDismissCancelled(appointment.id) }
-                    )
+        // Скроллируемое содержимое
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+        ) {
+            if (pendingAppointments.isEmpty() && cancelledAppointments.isEmpty()) {
+                Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
+                    Text("Нет новых событий", color = Color(0xFF94A3B8))
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-            }        }
+            } else {
+                pendingAppointments.forEach { appointment ->
+                    PendingAppointmentItem(
+                        appointment = appointment,
+                        onConfirm = { onConfirm(appointment.id) },
+                        onCancel = { onCancel(appointment.id) }
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                cancelledAppointments.forEach { appointment ->
+                    key(appointment.id) {
+                        CancelledAppointmentItem(
+                            appointment = appointment,
+                            onDismissed = { onDismissCancelled(appointment.id) }
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+            }
+        }
     }
 }
 
