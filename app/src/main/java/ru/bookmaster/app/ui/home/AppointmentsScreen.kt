@@ -42,6 +42,23 @@ private fun isAppointmentPassed(startTime: String): Boolean {
     }
 }
 
+private fun getStartTimeOrNull(startTime: String): LocalDateTime? {
+    return try {
+        LocalDateTime.parse(startTime.take(19))
+    } catch (e: Exception) {
+        null
+    }
+}
+
+private fun getCancellationReasonText(reason: String?): String {
+    return when (reason) {
+        "SALON" -> "❌ Отменено салоном"
+        "CLIENT" -> "❌ Отменено клиентом"
+        "AUTO" -> "❌ Автоотмена — салон не успел подтвердить"
+        else -> "❌ Отменено"
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun AppointmentsScreen(
@@ -49,7 +66,7 @@ fun AppointmentsScreen(
     viewModel: AppointmentsViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val tabs = listOf("Предстоящие", "Прошедшие")
+    val tabs = listOf("Будущие", "Прошедшие", "Отменённые")
     val pagerState = rememberPagerState(pageCount = { tabs.size })
     val scope = rememberCoroutineScope()
 
@@ -102,13 +119,15 @@ fun AppointmentsScreen(
             ) { page ->
                 when (page) {
                     0 -> {
+                        // Будущие: только подтверждённые, не отменённые, в будущем; ближайшие — сверху
                         AppointmentsList(
-                            appointments = uiState.appointments.filter { a ->
-                                val startTime = try {
-                                    LocalDateTime.parse(a.startTime.take(19))
-                                } catch (e: Exception) { null }
-                                startTime != null && startTime.isAfter(LocalDateTime.now()) && !a.cancelled!!
-                            },
+                            appointments = uiState.appointments
+                                .filter { a ->
+                                    val startTime = getStartTimeOrNull(a.startTime)
+                                    a.confirmed == true && a.cancelled == false &&
+                                            startTime != null && startTime.isAfter(LocalDateTime.now())
+                                }
+                                .sortedBy { getStartTimeOrNull(it.startTime) },
                             showActions = true,
                             onConfirm = { viewModel.confirmAppointment(it) },
                             onCancel = { viewModel.cancelAppointment(it) },
@@ -118,18 +137,29 @@ fun AppointmentsScreen(
                         )
                     }
                     1 -> {
+                        // Прошедшие: только подтверждённые, не отменённые, в прошлом; свежие — сверху
                         AppointmentsList(
-                            appointments = uiState.appointments.filter { a ->
-                                val startTime = try {
-                                    LocalDateTime.parse(a.startTime.take(19))
-                                } catch (e: Exception) { null }
-                                startTime != null && (startTime.isBefore(LocalDateTime.now()) || a.cancelled!!)
-                            },
+                            appointments = uiState.appointments
+                                .filter { a ->
+                                    val startTime = getStartTimeOrNull(a.startTime)
+                                    a.confirmed == true && a.cancelled == false &&
+                                            startTime != null && !startTime.isAfter(LocalDateTime.now())
+                                }
+                                .sortedByDescending { getStartTimeOrNull(it.startTime) },
                             showActions = false,
                             onConfirm = {},
                             onCancel = {},
                             onEdit = { id, masterId, startTime -> viewModel.editAppointment(id, masterId, startTime) },
                             masters = uiState.masters,
+                            isLoading = uiState.isLoading
+                        )
+                    }
+                    2 -> {
+                        // Отменённые: все cancelled == true; свежие отмены — сверху
+                        CancelledAppointmentsList(
+                            appointments = uiState.appointments
+                                .filter { a -> a.cancelled == true }
+                                .sortedByDescending { getStartTimeOrNull(it.startTime) },
                             isLoading = uiState.isLoading
                         )
                     }
@@ -201,6 +231,153 @@ fun AppointmentsList(
 }
 
 @Composable
+fun CancelledAppointmentsList(
+    appointments: List<AppointmentResponse>,
+    isLoading: Boolean
+) {
+    when {
+        isLoading -> {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = Color(0xFF38BDF8))
+            }
+        }
+        appointments.isEmpty() -> {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        Icons.Default.CancelScheduleSend,
+                        tint = Color(0xFF94A3B8),
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Нет отменённых записей",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 16.sp
+                    )
+                }
+            }
+        }
+        else -> {
+            LazyColumn(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                contentPadding = PaddingValues(vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(appointments) { appointment ->
+                    CancelledAppointmentListItem(
+                        appointment = appointment
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CancelledAppointmentListItem(
+    appointment: AppointmentResponse
+) {
+    val cancellationText = getCancellationReasonText(appointment.cancellationReason)
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B).copy(alpha = 0.7f))
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Cancel,
+                        tint = Color(0xFFEF4444),
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        formatDateTime(appointment.startTime),
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        fontSize = 14.sp
+                    )
+                }
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFEF4444).copy(alpha = 0.2f)
+                ) {
+                    Text(
+                        cancellationText.removePrefix("❌ "),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        color = Color(0xFFEF4444),
+                        fontSize = 12.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.Person,
+                    tint = Color(0xFF94A3B8),
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    "${appointment.clientName} • ${appointment.clientPhone}",
+                    color = Color.White,
+                    fontSize = 13.sp
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.Category,
+                    tint = Color(0xFF94A3B8),
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    "${appointment.serviceName} • ${appointment.masterName}",
+                    color = Color(0xFF94A3B8),
+                    fontSize = 13.sp
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.Info,
+                    tint = Color(0xFFFCA5A5),
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    cancellationText,
+                    color = Color(0xFFFCA5A5),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun AppointmentsListItem(
     appointment: AppointmentResponse,
     showActions: Boolean,
@@ -221,6 +398,7 @@ fun AppointmentsListItem(
     }
     val statusText = when {
         isCancelled -> "Отменено"
+        isConfirmed && isAppointmentPassed(appointment.startTime) -> "Завершено"
         isConfirmed -> "Подтверждено"
         else -> "Ожидает"
     }

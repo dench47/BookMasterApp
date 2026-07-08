@@ -238,24 +238,39 @@ fun MasterDetailScreen(
                     colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("💇 Услуги", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.List, contentDescription = null, tint = Color(0xFF38BDF8), modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Услуги", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        }
                         Spacer(modifier = Modifier.height(8.dp))
                         if (uiState.services.isEmpty()) {
                             Text("Нет доступных услуг", color = Color(0xFF94A3B8), fontSize = 14.sp)
                         } else {
                             uiState.services.forEach { service ->
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Checkbox(
-                                        checked = service.assigned,
-                                        onCheckedChange = { viewModel.toggleServiceAssignment(service.id) }
-                                    )
                                     Text(
                                         "${service.name} — ${service.price.toInt()} ₽ (${service.durationMinutes} мин)",
                                         color = Color(0xFFE2E8F0),
-                                        fontSize = 13.sp
+                                        fontSize = 13.sp,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Switch(
+                                        checked = service.assigned,
+                                        onCheckedChange = { viewModel.toggleServiceAssignment(service.id) },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = Color(0xFF38BDF8),
+                                            checkedTrackColor = Color(0xFF38BDF8).copy(alpha = 0.4f),
+                                            uncheckedThumbColor = Color(0xFF64748B),
+                                            uncheckedTrackColor = Color(0xFF334155)
+                                        ),
+                                        modifier = Modifier.width(52.dp)
                                     )
                                 }
                             }
@@ -618,6 +633,8 @@ fun MasterDetailScreen(
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // ===== 6. Перерывы =====
                 Card(

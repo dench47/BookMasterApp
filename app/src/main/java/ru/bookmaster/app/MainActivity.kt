@@ -51,6 +51,7 @@ import ru.bookmaster.app.ui.masters.MastersScreen
 import ru.bookmaster.app.ui.premium.PremiumScreen
 import ru.bookmaster.app.ui.register.RegisterScreen
 import ru.bookmaster.app.ui.services.ServiceDetailScreen
+import ru.bookmaster.app.ui.settings.SettingsScreen
 import ru.bookmaster.app.ui.services.ServicesScreen
 import ru.bookmaster.app.ui.theme.BookMasterTheme
 import ru.bookmaster.app.util.TokenManager
@@ -163,6 +164,7 @@ class MainActivity : ComponentActivity() {
                                 navController.navigate("masters")
                             },
                             onNavigateToPremium = { navController.navigate("premium") },
+                            onNavigateToSettings = { navController.navigate("settings") },
                             onNavigateToDayAppointments = { date ->
                                 navController.navigate("day_appointments/$date")
                             },
@@ -225,6 +227,12 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
+                    composable("settings") {
+                        SettingsScreen(
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+
                     composable("premium") {
                         PremiumScreen(
                             onBack = { navController.popBackStack() },
@@ -254,6 +262,7 @@ fun MainScreen(
     onNavigateToServices: () -> Unit,
     onNavigateToMasters: () -> Unit,
     onNavigateToPremium: () -> Unit,
+    onNavigateToSettings: () -> Unit = {},
     onNavigateToDayAppointments: (String) -> Unit = {},
     onNavigateToAllAppointments: () -> Unit = {},
     cabinetViewModel: CabinetViewModel,
@@ -288,6 +297,7 @@ fun MainScreen(
                 onNavigateToClients = { onTabSelected(1) },
                 onNavigateToMasters = onNavigateToMasters,
                 onShareWebLink = {},
+                onNavigateToSettings = onNavigateToSettings,
                 onNavigateToDayAppointments = onNavigateToDayAppointments,
                 onNavigateToAllAppointments = onNavigateToAllAppointments,
                 viewModel = homeViewModel

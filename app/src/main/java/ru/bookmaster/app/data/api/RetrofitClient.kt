@@ -7,13 +7,12 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-import ru.bookmaster.app.BuildConfig
 import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
 
-     const val BASE_URL = "http://192.168.0.152:8080/"
-//     const val BASE_URL = "http://172.25.41.231:8080/"
+//     const val BASE_URL = "http://192.168.0.152:8080/"
+     const val BASE_URL = "http://172.25.41.231:8080/"
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
     }

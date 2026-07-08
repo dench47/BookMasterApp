@@ -65,70 +65,7 @@ fun CabinetScreen(
                 .padding(bottom = 80.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Блок 1: Название салона + информация
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    // Верхняя часть с аватаром и названием
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(60.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF38BDF8).copy(alpha = 0.2f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    uiState.displayName.take(1).uppercase(),
-                                    fontSize = 24.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF38BDF8)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text(
-                                    uiState.displayName,
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                                Text(
-                                    uiState.email,
-                                    color = Color(0xFF64748B),
-                                    fontSize = 12.sp
-                                )
-                            }
-                        }
-                        IconButton(onClick = { /* TODO: редактировать */ }) {
-                            Icon(Icons.Default.Edit, contentDescription = "Редактировать", tint = Color(0xFF38BDF8))
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-                    HorizontalDivider(color = Color(0xFF334155))
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Информация
-                    InfoRow(label = "Телефон", value = uiState.phone)
-                    InfoRow(label = "Адрес", value = uiState.address)
-                    InfoRow(label = "Зарегистрирован", value = uiState.createdAt)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Блок 2: Услуги
+            // Блок 1: Услуги
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
