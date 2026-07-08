@@ -298,6 +298,12 @@ fun HomeScreen(
                     date = uiState.todayDate,
                     appointments = uiState.todayAppointments,
                     revenue = uiState.todayRevenue,
+                    actualAppointments = uiState.todayActualAppointments,
+                    actualRevenue = uiState.todayActualRevenue,
+                    showPlanned = uiState.showPlanned,
+                    isRevenueVisible = uiState.isRevenueVisible,
+                    onToggleMode = { viewModel.toggleRevenueMode() },
+                    onToggleVisibility = { viewModel.toggleRevenueVisibility() },
                     onFreeSlotsClick = { },
                     onScheduleClick = { onNavigateToAllAppointments() }
                 )
@@ -326,9 +332,20 @@ fun TodayCard(
     date: String,
     appointments: Int,
     revenue: String,
+    actualAppointments: Int,
+    actualRevenue: String,
+    showPlanned: Boolean,
+    isRevenueVisible: Boolean,
+    onToggleMode: () -> Unit,
+    onToggleVisibility: () -> Unit,
     onFreeSlotsClick: () -> Unit,
     onScheduleClick: () -> Unit
 ) {
+    val displayCount = if (showPlanned) appointments else actualAppointments
+    val displayRevenue = if (showPlanned) revenue else actualRevenue
+    val modeLabel = if (showPlanned) "План" else "Факт"
+    val otherModeLabel = if (showPlanned) "Факт" else "План"
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -337,12 +354,26 @@ fun TodayCard(
         colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                date,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF38BDF8)
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    date,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF38BDF8)
+                )
+                IconButton(onClick = onToggleVisibility, modifier = Modifier.size(28.dp)) {
+                    Icon(
+                        imageVector = if (isRevenueVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                        contentDescription = if (isRevenueVisible) "Скрыть" else "Показать",
+                        tint = Color(0xFF94A3B8),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
             Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -350,7 +381,7 @@ fun TodayCard(
             ) {
                 Column {
                     Text(
-                        "$appointments",
+                        if (isRevenueVisible) "$displayCount" else "***",
                         fontSize = 32.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -359,13 +390,39 @@ fun TodayCard(
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        revenue,
+                        if (isRevenueVisible) displayRevenue else "***",
                         fontSize = 32.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF86EFAC)
                     )
                     Text("выручка", color = Color(0xFF94A3B8), fontSize = 12.sp)
                 }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    "● $modeLabel",
+                    color = Color(0xFF38BDF8),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    "○ $otherModeLabel",
+                    color = Color(0xFF94A3B8),
+                    fontSize = 12.sp,
+                    modifier = Modifier.clickable(onClick = onToggleMode)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    if (showPlanned) "(план)" else "(факт)",
+                    color = Color(0xFF64748B),
+                    fontSize = 11.sp
+                )
             }
             Spacer(modifier = Modifier.height(16.dp))
             Row(

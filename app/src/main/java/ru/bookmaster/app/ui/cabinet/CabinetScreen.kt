@@ -65,6 +65,8 @@ fun CabinetScreen(
                 .padding(bottom = 80.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Spacer(modifier = Modifier.height(12.dp))
+
             // Блок 1: Услуги
             Card(
                 modifier = Modifier

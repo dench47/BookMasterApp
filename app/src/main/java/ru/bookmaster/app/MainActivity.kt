@@ -27,6 +27,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.toColorInt
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
@@ -51,8 +53,8 @@ import ru.bookmaster.app.ui.masters.MastersScreen
 import ru.bookmaster.app.ui.premium.PremiumScreen
 import ru.bookmaster.app.ui.register.RegisterScreen
 import ru.bookmaster.app.ui.services.ServiceDetailScreen
-import ru.bookmaster.app.ui.settings.SettingsScreen
 import ru.bookmaster.app.ui.services.ServicesScreen
+import ru.bookmaster.app.ui.settings.SettingsScreen
 import ru.bookmaster.app.ui.theme.BookMasterTheme
 import ru.bookmaster.app.util.TokenManager
 
@@ -69,6 +71,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        window.statusBarColor = "#0F172A".toColorInt()
+        WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightStatusBars = false
+        window.navigationBarColor = "#0F172A".toColorInt()
+        WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightNavigationBars = false
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
@@ -145,7 +152,7 @@ class MainActivity : ComponentActivity() {
 
                         MainScreen(
                             selectedTab = selectedTab,
-                            onTabSelected = { selectedTab = it },
+                            onTabSelected = { },
                             onLogout = {
                                 lifecycleScope.launch {
                                     TokenManager(this@MainActivity).clear()

@@ -28,6 +28,8 @@ data class HomeUiState(
     val todayDate: String = "",
     val todayAppointments: Int = 0,
     val todayRevenue: String = "0",
+    val todayActualAppointments: Int = 0,
+    val todayActualRevenue: String = "0",
     val weekStats: List<WeekDayStat> = emptyList(),
     val totalClients: Int = 0,
     val newClientsThisMonth: Int = 0,
@@ -45,7 +47,9 @@ data class HomeUiState(
     val cancelledByClientCount: Int = 0,
     val totalEventsCount: Int = 0,
     val isPendingSheetVisible: Boolean = false,
-    val masters: List<Master> = emptyList()
+    val masters: List<Master> = emptyList(),
+    val showPlanned: Boolean = false,
+    val isRevenueVisible: Boolean = true
 )
 
 data class WeekDayStat(
@@ -53,7 +57,9 @@ data class WeekDayStat(
     val dayOfWeekShort: String,
     val date: String,
     val appointments: Int,
-    val revenue: String
+    val revenue: String,
+    val actualAppointments: Int = 0,
+    val actualRevenue: String = "0 ₽"
 )
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
@@ -90,6 +96,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         super.onCleared()
         appPrefs.unregisterOnSharedPreferenceChangeListener(prefListener)
+    }
+
+    fun toggleRevenueMode() {
+        _uiState.value = _uiState.value.copy(showPlanned = !_uiState.value.showPlanned)
+    }
+
+    fun toggleRevenueVisibility() {
+        _uiState.value = _uiState.value.copy(isRevenueVisible = !_uiState.value.isRevenueVisible)
     }
 
     fun loadAllData() {
@@ -158,6 +172,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     todayDate = todayData["dayOfWeek"] as? String ?: "",
                     todayAppointments = (todayData["totalAppointments"] as? Number)?.toInt() ?: 0,
                     todayRevenue = formatRevenue((todayData["totalRevenue"] as? Number)?.toDouble() ?: 0.0),
+                    todayActualAppointments = (todayData["actualAppointments"] as? Number)?.toInt() ?: 0,
+                    todayActualRevenue = formatRevenue((todayData["actualRevenue"] as? Number)?.toDouble() ?: 0.0),
                     weekStats = parseWeekStats(weekData),
                     totalClients = (clientsData["totalClients"] as? Number)?.toInt() ?: 0,
                     newClientsThisMonth = (clientsData["newClientsThisMonth"] as? Number)?.toInt() ?: 0,
@@ -173,7 +189,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     cancelledByClientCount = cancelledCount,
                     totalEventsCount = newEventsCount + cancelledCount,
                     isPendingSheetVisible = _uiState.value.isPendingSheetVisible,
-                    masters = mastersList
+                    masters = mastersList,
+                    showPlanned = _uiState.value.showPlanned,
+                    isRevenueVisible = _uiState.value.isRevenueVisible
                 )
             } catch (_: java.net.SocketTimeoutException) {
                 _uiState.value = _uiState.value.copy(
@@ -316,7 +334,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     dayOfWeekShort = day["dayOfWeekShort"] as? String ?: "",
                     date = day["date"] as? String ?: "",
                     appointments = (day["appointments"] as? Number)?.toInt() ?: 0,
-                    revenue = formatRevenue((day["revenue"] as? Number)?.toDouble() ?: 0.0)
+                    revenue = formatRevenue((day["revenue"] as? Number)?.toDouble() ?: 0.0),
+                    actualAppointments = (day["completed"] as? Number)?.toInt() ?: 0,
+                    actualRevenue = formatRevenue((day["actualRevenue"] as? Number)?.toDouble() ?: 0.0)
                 )
             } catch (_: Exception) { null }
         }
@@ -374,4 +394,3 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 }
-

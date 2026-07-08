@@ -137,13 +137,11 @@ fun AppointmentsScreen(
                         )
                     }
                     1 -> {
-                        // Прошедшие: только подтверждённые, не отменённые, в прошлом; свежие — сверху
+                        // Прошедшие: только completed == true; свежие — сверху
                         AppointmentsList(
                             appointments = uiState.appointments
                                 .filter { a ->
-                                    val startTime = getStartTimeOrNull(a.startTime)
-                                    a.confirmed == true && a.cancelled == false &&
-                                            startTime != null && !startTime.isAfter(LocalDateTime.now())
+                                    a.completed == true && a.cancelled == false
                                 }
                                 .sortedByDescending { getStartTimeOrNull(it.startTime) },
                             showActions = false,
@@ -393,12 +391,13 @@ fun AppointmentsListItem(
 
     val statusColor = when {
         isCancelled -> Color(0xFFEF4444)
+        appointment.completed == true -> Color(0xFF22C55E)
         isConfirmed -> Color(0xFF22C55E)
         else -> Color(0xFFFCD34D)
     }
     val statusText = when {
         isCancelled -> "Отменено"
-        isConfirmed && isAppointmentPassed(appointment.startTime) -> "Завершено"
+        appointment.completed == true -> "Завершено"
         isConfirmed -> "Подтверждено"
         else -> "Ожидает"
     }

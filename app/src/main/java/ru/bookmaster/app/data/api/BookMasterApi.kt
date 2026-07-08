@@ -146,6 +146,13 @@ interface BookMasterApi {
         @Header("Authorization") token: String
     ): Response<Map<String, Any>>
 
+    @PUT("api/companies/{id}")
+    suspend fun updateCompany(
+        @Path("id") id: Long,
+        @Body body: Map<String, @JvmSuppressWildcards Any>,
+        @Header("Authorization") token: String
+    ): Response<Map<String, Any>>
+
     @GET("api/stats/{companyId}")
     suspend fun getStats(
         @Path("companyId") companyId: Long,

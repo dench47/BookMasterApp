@@ -576,16 +576,18 @@ fun MasterDetailScreen(
                             Text("Ограничение записи:", color = Color(0xFF94A3B8), fontSize = 14.sp)
 
                             var expanded by remember { mutableStateOf(false) }
-                            val options = listOf("none", "today_tomorrow", "today", "12h", "4h", "3h", "2h", "1h")
+                            val options = listOf("none", "today_tomorrow", "today", "12h", "4h", "3h", "2h", "1h", "30m", "15m")
                             val labels = mapOf(
-                                "none" to "Нет ограничений",
+                                "none" to "Нет",
                                 "today_tomorrow" to "Сегодня + завтра",
                                 "today" to "Сегодня",
                                 "12h" to "Менее 12 часов",
                                 "4h" to "Менее 4 часов",
                                 "3h" to "Менее 3 часов",
                                 "2h" to "Менее 2 часов",
-                                "1h" to "Менее 1 часа"
+                                "1h" to "Менее 1 часа",
+                                "30m" to "Менее 30 мин",
+                                "15m" to "Менее 15 мин"
                             )
 
                             Box {

@@ -14,5 +14,6 @@ data class AppointmentResponse(
     val salonName: String? = null,
     val masterId: Long? = null,
     val serviceId: Long? = null,
-    val cancellationReason: String? = null
+    val cancellationReason: String? = null,
+    val completed: Boolean? = false
 )
