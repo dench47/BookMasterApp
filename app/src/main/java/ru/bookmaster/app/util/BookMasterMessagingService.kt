@@ -7,6 +7,10 @@ import android.content.Intent
 import androidx.core.content.edit
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import ru.bookmaster.app.data.api.RetrofitClient
 
 class BookMasterMessagingService : FirebaseMessagingService() {
 
@@ -25,6 +29,9 @@ class BookMasterMessagingService : FirebaseMessagingService() {
         super.onNewToken(token)
         getSharedPreferences("fcm_prefs", MODE_PRIVATE)
             .edit { putString("fcm_token", token) }
+
+        // Отправляем новый токен на сервер, если есть JWT токен
+        sendTokenToServer(token)
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
@@ -86,5 +93,20 @@ class BookMasterMessagingService : FirebaseMessagingService() {
 
         val manager = getSystemService(NotificationManager::class.java)
         manager.notify(System.currentTimeMillis().toInt(), notification)
+    }
+
+    private fun sendTokenToServer(fcmToken: String) {
+        val jwt = getSharedPreferences("app_prefs", MODE_PRIVATE)
+            .getString("jwt_token", null)
+        if (jwt == null) return
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                RetrofitClient.instance.registerDeviceToken(
+                    mapOf("token" to fcmToken),
+                    "Bearer $jwt"
+                )
+            } catch (_: Exception) { }
+        }
     }
 }

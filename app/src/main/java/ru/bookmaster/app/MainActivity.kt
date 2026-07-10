@@ -152,7 +152,7 @@ class MainActivity : ComponentActivity() {
 
                         MainScreen(
                             selectedTab = selectedTab,
-                            onTabSelected = { },
+                            onTabSelected = { tab -> selectedTab = tab },
                             onLogout = {
                                 lifecycleScope.launch {
                                     TokenManager(this@MainActivity).clear()
