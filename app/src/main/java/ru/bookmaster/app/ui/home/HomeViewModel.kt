@@ -4,20 +4,16 @@ import android.annotation.SuppressLint
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import ru.bookmaster.app.data.api.RetrofitClient
 import ru.bookmaster.app.data.model.AppointmentResponse
+import ru.bookmaster.app.data.model.DashboardResponse
 import ru.bookmaster.app.data.model.Master
 import ru.bookmaster.app.util.BookMasterMessagingService
 import ru.bookmaster.app.util.TokenManager
-import java.net.HttpURLConnection
-import java.net.URL
 import java.time.LocalDate
 import androidx.core.content.edit
 
@@ -70,8 +66,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val premiumPrefs = application.getSharedPreferences("premium_prefs", android.content.Context.MODE_PRIVATE)
     private val appPrefs = application.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
 
-    private var retryJob: Job? = null
-
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState = _uiState.asStateFlow()
 
@@ -91,7 +85,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     init {
         appPrefs.registerOnSharedPreferenceChangeListener(prefListener)
         loadAllData()
-        startRetryOnConnection()
     }
 
     override fun onCleared() {
@@ -117,37 +110,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 val companyName = tokenManager.companyName.first() ?: ""
                 val isPremium = premiumPrefs.getBoolean("is_premium", false)
 
-                val todayDeferred = async {
-                    try { api.getTodayStats(companyId, "Bearer $token") } catch (_: Exception) { null }
-                }
-                val weekDeferred = async {
-                    try { api.getWeekStats(companyId, getWeekStart(), "Bearer $token") } catch (_: Exception) { null }
-                }
-                val clientsStatsDeferred = async {
-                    try { api.getClientsStats(companyId, "Bearer $token") } catch (_: Exception) { null }
-                }
-                val mastersStatsDeferred = async {
-                    try { api.getMastersStats(companyId, "Bearer $token") } catch (_: Exception) { null }
-                }
-                val pendingDeferred = async {
-                    try { api.getPendingAppointments(companyId, "Bearer $token") } catch (_: Exception) { null }
-                }
-                val cancelledDeferred = async {
-                    try { api.getCancelledByClientAppointments(companyId, "Bearer $token") } catch (_: Exception) { null }
-                }
-                val mastersDeferred = async {
-                    try { api.getMasters(companyId, "Bearer $token") } catch (_: Exception) { null }
-                }
+                // ЕДИНСТВЕННЫЙ ЗАПРОС вместо 7
+                val dashboardResponse = try {
+                    api.getDashboard(companyId, "Bearer $token")
+                } catch (_: Exception) { null }
 
-                val todayResponse = todayDeferred.await()
-                val weekResponse = weekDeferred.await()
-                val clientsStatsResponse = clientsStatsDeferred.await()
-                val mastersStatsResponse = mastersStatsDeferred.await()
-                val pendingResponse = pendingDeferred.await()
-                val cancelledResponse = cancelledDeferred.await()
-                val mastersResponse = mastersDeferred.await()
-
-                if (todayResponse == null && weekResponse == null && clientsStatsResponse == null && mastersStatsResponse == null) {
+                if (dashboardResponse == null) {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         isServerError = true,
@@ -156,32 +124,48 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     return@launch
                 }
 
-                val todayData = todayResponse?.body() ?: emptyMap()
-                val weekData = weekResponse?.body() ?: emptyList()
-                val clientsData = clientsStatsResponse?.body() ?: emptyMap()
-                val mastersData = mastersStatsResponse?.body() ?: emptyMap()
-                val mastersList = mastersResponse?.body() ?: emptyList()
+                val dashboard = dashboardResponse.body()
 
-                val pendingList = pendingResponse?.body() ?: emptyList()
-                val cancelledList = cancelledResponse?.body() ?: emptyList()
-                val newEventsCount = pendingList.size
+                if (dashboard == null) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        isServerError = true,
+                        serverErrorMessage = "Сервер недоступен. Проверьте подключение к интернету."
+                    )
+                    return@launch
+                }
+
+                val pendingList = dashboard.pendingAppointments ?: emptyList()
+                val cancelledList = dashboard.cancelledAppointments ?: emptyList()
                 val cancelledCount = appPrefs.getInt(BookMasterMessagingService.KEY_CANCELLED_COUNT, 0)
+                val newEventsCount = pendingList.size
+
+                // Мастеров преобразуем в модель Master
+                val mastersList = dashboard.masters?.mapNotNull { masterMap ->
+                    try {
+                        Master(
+                            id = (masterMap["id"] as? Number)?.toLong() ?: return@mapNotNull null,
+                            name = masterMap["name"] as? String ?: "",
+                            active = (masterMap["active"] as? Boolean) ?: true
+                        )
+                    } catch (_: Exception) { null }
+                } ?: emptyList()
 
                 _uiState.value = HomeUiState(
                     companyName = companyName,
                     isLoading = false,
-                    todayDate = todayData["dayOfWeek"] as? String ?: "",
-                    todayAppointments = (todayData["totalAppointments"] as? Number)?.toInt() ?: 0,
-                    todayConfirmedAppointments = (todayData["confirmedAppointments"] as? Number)?.toInt() ?: 0,
-                    todayRevenue = formatRevenue((todayData["totalRevenue"] as? Number)?.toDouble() ?: 0.0),
-                    todayActualAppointments = (todayData["actualAppointments"] as? Number)?.toInt() ?: 0,
-                    todayActualRevenue = formatRevenue((todayData["actualRevenue"] as? Number)?.toDouble() ?: 0.0),
-                    weekStats = parseWeekStats(weekData),
-                    totalClients = (clientsData["totalClients"] as? Number)?.toInt() ?: 0,
-                    newClientsThisMonth = (clientsData["newClientsThisMonth"] as? Number)?.toInt() ?: 0,
-                    sleepingClients = (clientsData["sleepingClients"] as? Number)?.toInt() ?: 0,
-                    totalMasters = (mastersData["totalMasters"] as? Number)?.toInt() ?: 0,
-                    activeMasters = (mastersData["activeMasters"] as? Number)?.toInt() ?: 0,
+                    todayDate = dashboard.todayDayOfWeek,
+                    todayAppointments = dashboard.todayAppointments,
+                    todayConfirmedAppointments = dashboard.todayConfirmedAppointments,
+                    todayRevenue = formatRevenue(dashboard.todayRevenue?.toDouble() ?: 0.0),
+                    todayActualAppointments = dashboard.todayActualAppointments,
+                    todayActualRevenue = formatRevenue(dashboard.todayActualRevenue?.toDouble() ?: 0.0),
+                    weekStats = parseWeekStats(dashboard.weekStats),
+                    totalClients = dashboard.totalClients,
+                    newClientsThisMonth = dashboard.newClientsThisMonth,
+                    sleepingClients = dashboard.sleepingClients,
+                    totalMasters = dashboard.totalMasters,
+                    activeMasters = dashboard.activeMasters,
                     isPremium = isPremium,
                     webBookingUrl = "http://your-server.com/salon/$companyId",
                     isMaster = companyType == "master",
@@ -235,18 +219,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 val token = tokenManager.token.first() ?: ""
                 val companyId = tokenManager.companyId.first() ?: return@launch
 
-                val pendingDeferred = async {
-                    try { api.getPendingAppointments(companyId, "Bearer $token") } catch (_: Exception) { null }
-                }
-                val cancelledDeferred = async {
-                    try { api.getCancelledByClientAppointments(companyId, "Bearer $token") } catch (_: Exception) { null }
-                }
+                // Единый dashboard-запрос для событий
+                val dashboardResponse = try {
+                    api.getDashboard(companyId, "Bearer $token")
+                } catch (_: Exception) { null }
 
-                val pendingResponse = pendingDeferred.await()
-                val cancelledResponse = cancelledDeferred.await()
+                val dashboard = dashboardResponse?.body()
 
-                val pendingList = pendingResponse?.body() ?: _uiState.value.pendingAppointments
-                val cancelledList = cancelledResponse?.body() ?: _uiState.value.cancelledAppointments
+                val pendingList = dashboard?.pendingAppointments ?: _uiState.value.pendingAppointments
+                val cancelledList = dashboard?.cancelledAppointments ?: _uiState.value.cancelledAppointments
                 val cancelledCount = appPrefs.getInt(BookMasterMessagingService.KEY_CANCELLED_COUNT, 0)
 
                 _uiState.value = _uiState.value.copy(
@@ -310,7 +291,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             viewModelScope.launch {
                 loadAllData()
                 while (_uiState.value.isLoading) {
-                    delay(50)
+                    kotlinx.coroutines.delay(50)
                 }
                 _uiState.value = _uiState.value.copy(
                     isPendingSheetVisible = true,
@@ -319,12 +300,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
         }
-    }
-
-    private fun getWeekStart(): String {
-        val today = LocalDate.now()
-        val monday = today.with(java.time.DayOfWeek.MONDAY)
-        return monday.toString()
     }
 
     private fun parseWeekStats(data: List<Map<String, Any>>?): List<WeekDayStat> {
@@ -351,30 +326,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refresh() {
         loadAllData()
-    }
-
-    private fun startRetryOnConnection() {
-        retryJob?.cancel()
-        retryJob = viewModelScope.launch {
-            while (true) {
-                delay(30000)
-                if (!isConnected()) continue
-                if (_uiState.value.isServerError) {
-                    loadAllData()
-                }
-            }
-        }
-    }
-
-    private fun isConnected(): Boolean {
-        return try {
-            val baseUrl = RetrofitClient.BASE_URL
-            val url = URL("$baseUrl/actuator/health")
-            val connection = url.openConnection() as HttpURLConnection
-            connection.connectTimeout = 3000
-            connection.connect()
-            connection.responseCode == 200
-        } catch (_: Exception) { false }
     }
 
     fun dismissCancelledAppointment(appointmentId: Long) {

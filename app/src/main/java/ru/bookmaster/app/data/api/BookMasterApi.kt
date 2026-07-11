@@ -15,6 +15,7 @@ import retrofit2.http.Query
 import ru.bookmaster.app.data.model.AppointmentResponse
 import ru.bookmaster.app.data.model.ClientDetailResponse
 import ru.bookmaster.app.data.model.ClientsResponse
+import ru.bookmaster.app.data.model.DashboardResponse
 import ru.bookmaster.app.data.model.LoginRequest
 import ru.bookmaster.app.data.model.LoginResponse
 import ru.bookmaster.app.data.model.Master
@@ -139,6 +140,12 @@ interface BookMasterApi {
         @Path("companyId") companyId: Long,
         @Header("Authorization") token: String
     ): Response<Map<String, Any>>
+
+    @GET("api/dashboard/{companyId}")
+    suspend fun getDashboard(
+        @Path("companyId") companyId: Long,
+        @Header("Authorization") token: String
+    ): Response<DashboardResponse>
 
     @GET("api/companies/{id}")
     suspend fun getCompany(
