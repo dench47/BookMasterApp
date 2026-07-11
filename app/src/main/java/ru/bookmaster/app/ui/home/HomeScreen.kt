@@ -38,24 +38,6 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
-private fun formatDateTime(isoString: String): String {
-    return try {
-        val dateTime = LocalDateTime.parse(isoString.take(19))
-        dateTime.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"))
-    } catch (_: Exception) {
-        isoString
-    }
-}
-
-private fun isAppointmentPassed(startTime: String): Boolean {
-    return try {
-        val dateTime = LocalDateTime.parse(startTime.take(19))
-        dateTime.isBefore(LocalDateTime.now())
-    } catch (_: Exception) {
-        false
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -113,7 +95,7 @@ fun HomeScreen(
             contentColor = Color.White
         ) {
             PendingAppointmentsSheetContent(
-                pendingAppointments = uiState.pendingAppointments.filter { !it.confirmed!! && !it.cancelled!! },
+                pendingAppointments = uiState.pendingAppointments.filter { it.confirmed != true && it.cancelled != true },
                 cancelledAppointments = uiState.cancelledAppointments,
                 onConfirm = { viewModel.confirmAppointment(it) },
                 onCancel = { viewModel.cancelAppointment(it) },
@@ -630,7 +612,7 @@ fun PendingAppointmentItem(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(appointment.clientName, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 16.sp)
+                    Text(appointment.clientName ?: "—", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 16.sp)
                     Surface(shape = RoundedCornerShape(8.dp), color = Color(0xFFFCD34D).copy(alpha = 0.2f)) {
                         Text("Ожидает", modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp), color = Color(0xFFFCD34D), fontSize = 12.sp)
                     }
@@ -639,7 +621,7 @@ fun PendingAppointmentItem(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Category, tint = Color(0xFF94A3B8), contentDescription = null, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("${appointment.serviceName} • ${appointment.masterName}", color = Color(0xFF94A3B8), fontSize = 13.sp)
+                    Text("${appointment.serviceName ?: "—"} • ${appointment.masterName ?: "—"}", color = Color(0xFF94A3B8), fontSize = 13.sp)
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -722,7 +704,7 @@ fun EditAppointmentDialog(
 ) {
     val initialDateTime = remember {
         try {
-            LocalDateTime.parse(appointment.startTime.take(19))
+            LocalDateTime.parse((appointment.startTime ?: "").take(19))
         } catch (e: Exception) {
             LocalDateTime.now()
         }
@@ -755,7 +737,7 @@ fun EditAppointmentDialog(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Category, tint = Color(0xFF94A3B8), contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(appointment.serviceName, color = Color(0xFF94A3B8), fontSize = 14.sp)
+                    Text(appointment.serviceName ?: "—", color = Color(0xFF94A3B8), fontSize = 14.sp)
                 }
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -767,7 +749,7 @@ fun EditAppointmentDialog(
                         onExpandedChange = { expanded = it }
                     ) {
                         OutlinedTextField(
-                            value = masters.find { it.id == selectedMasterId }?.name ?: appointment.masterName,
+                            value = masters.find { it.id == selectedMasterId }?.name ?: (appointment.masterName ?: ""),
                             onValueChange = {},
                             readOnly = true,
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
@@ -793,7 +775,7 @@ fun EditAppointmentDialog(
                         }
                     }
                 } else {
-                    Text(appointment.masterName, color = Color(0xFF94A3B8), fontSize = 14.sp)
+                    Text(appointment.masterName ?: "—", color = Color(0xFF94A3B8), fontSize = 14.sp)
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -919,7 +901,7 @@ fun EditAppointmentDialog(
                     val newStartTime = newDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"))
                     onSave(
                         selectedMasterId,
-                        if (newStartTime != appointment.startTime.take(16)) newStartTime else null
+                        if (newStartTime != (appointment.startTime ?: "").take(16)) newStartTime else null
                     )
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF38BDF8))

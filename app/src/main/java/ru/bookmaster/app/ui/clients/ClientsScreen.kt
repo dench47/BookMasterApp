@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -60,14 +61,17 @@ fun ClientsScreen(
             SortChip("Имя", uiState.sortBy == "name") {
                 viewModel.sortClients("name", if (uiState.sortDir == "asc") "desc" else "asc")
             }
-            SortChip("Записи", uiState.sortBy == "totalVisits") {
+            SortChip("Визиты", uiState.sortBy == "totalVisits") {
                 viewModel.sortClients("totalVisits", "desc")
             }
             SortChip("Сумма", uiState.sortBy == "totalSpent") {
                 viewModel.sortClients("totalSpent", "desc")
             }
-            SortChip("Визит", uiState.sortBy == "lastVisit") {
+            SortChip("Посл.визит", uiState.sortBy == "lastVisit") {
                 viewModel.sortClients("lastVisit", "desc")
+            }
+            SortChip("Давно не был", uiState.sortBy == "daysSinceLastVisit") {
+                viewModel.sortClients("daysSinceLastVisit", "desc")
             }
         }
 
@@ -166,22 +170,75 @@ fun SortChip(label: String, isSelected: Boolean, onClick: () -> Unit) {
 
 @Composable
 fun ClientCard(client: Client, isPremium: Boolean, onClick: () -> Unit) {
+    val statusColor = when (client.loyaltyStatus) {
+        "vip" -> Color(0xFFFFD700)
+        "problematic" -> Color(0xFFFF4444)
+        "sleeping" -> Color(0xFFAAAAAA)
+        "new" -> Color(0xFF4CAF50)
+        else -> Color.Transparent
+    }
+
+    val statusLabel = when (client.loyaltyStatus) {
+        "vip" -> "⭐ VIP"
+        "problematic" -> "⚠ Проблемный"
+        "sleeping" -> "💤 Спящий"
+        "new" -> "🆕 Новый"
+        else -> ""
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         onClick = onClick
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
-            Text(client.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    client.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                if (statusLabel.isNotEmpty()) {
+                    Text(
+                        statusLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = statusColor,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
             Spacer(modifier = Modifier.height(2.dp))
             Text("📞 ${client.phone}", style = MaterialTheme.typography.bodySmall)
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 Text("📊 ${client.totalVisits} зап.", style = MaterialTheme.typography.bodySmall)
                 if (isPremium) {
                     Text("💰 ${client.totalSpent.toInt()} ₽", style = MaterialTheme.typography.bodySmall)
+                    Text("❌ ${client.cancellationCount} отмен", style = MaterialTheme.typography.bodySmall)
                 }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 client.lastVisit?.let {
-                    Text("📅 ${it.take(10).split("-").reversed().joinToString(".")}", style = MaterialTheme.typography.bodySmall)
+                    Text("📅 ${it.take(10).split("-").reversed().joinToString(".")}",
+                        style = MaterialTheme.typography.bodySmall)
+                }
+                if (client.daysSinceLastVisit < 999) {
+                    Text(
+                        "🚫 ${client.daysSinceLastVisit} дн. назад",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (client.daysSinceLastVisit > 30) Color(0xFFFF4444) else Color.Unspecified
+                    )
                 }
             }
         }

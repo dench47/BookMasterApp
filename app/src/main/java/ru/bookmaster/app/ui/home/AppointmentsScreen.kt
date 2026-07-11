@@ -24,7 +24,8 @@ import ru.bookmaster.app.data.model.Master
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-private fun formatDateTime(isoString: String): String {
+internal fun formatDateTime(isoString: String?): String {
+    if (isoString == null) return "—"
     return try {
         val dateTime = LocalDateTime.parse(isoString.take(19))
         dateTime.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"))
@@ -33,7 +34,8 @@ private fun formatDateTime(isoString: String): String {
     }
 }
 
-private fun isAppointmentPassed(startTime: String): Boolean {
+internal fun isAppointmentPassed(startTime: String?): Boolean {
+    if (startTime == null) return true
     return try {
         val dateTime = LocalDateTime.parse(startTime.take(19))
         dateTime.isBefore(LocalDateTime.now())
@@ -42,7 +44,8 @@ private fun isAppointmentPassed(startTime: String): Boolean {
     }
 }
 
-private fun getStartTimeOrNull(startTime: String): LocalDateTime? {
+private fun getStartTimeOrNull(startTime: String?): LocalDateTime? {
+    if (startTime == null) return null
     return try {
         LocalDateTime.parse(startTime.take(19))
     } catch (e: Exception) {
@@ -385,9 +388,9 @@ fun AppointmentsListItem(
     masters: List<Master> = emptyList()
 ) {
     var showEditDialog by remember { mutableStateOf(false) }
-    val isPending = !appointment.confirmed!! && !appointment.cancelled!!
-    val isConfirmed = appointment.confirmed!!
-    val isCancelled = appointment.cancelled!!
+    val isPending = appointment.confirmed != true && appointment.cancelled != true
+    val isConfirmed = appointment.confirmed == true
+    val isCancelled = appointment.cancelled == true
 
     val statusColor = when {
         isCancelled -> Color(0xFFEF4444)

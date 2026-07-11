@@ -14,6 +14,7 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 import ru.bookmaster.app.data.model.AppointmentResponse
 import ru.bookmaster.app.data.model.ClientDetailResponse
+import ru.bookmaster.app.data.model.ClientProfileResponse
 import ru.bookmaster.app.data.model.ClientsResponse
 import ru.bookmaster.app.data.model.DashboardResponse
 import ru.bookmaster.app.data.model.LoginRequest
@@ -91,7 +92,7 @@ interface BookMasterApi {
     @POST("api/auth/login-by-phone")
     suspend fun loginByPhone(@Body body: Map<String, String>): Response<LoginResponse>
 
-    // Добавить в конец интерфейса BookMasterApi:
+    // ========== Клиенты ==========
 
     @GET("api/clients")
     suspend fun getClients(
@@ -100,7 +101,8 @@ interface BookMasterApi {
         @Query("size") size: Int,
         @Query("sortBy") sortBy: String = "name",
         @Query("sortDir") sortDir: String = "asc",
-        @Query("search") search: String? = null
+        @Query("search") search: String? = null,
+        @Query("tag") tag: String? = null
     ): Response<ClientsResponse>
 
     @GET("api/clients/{id}")
@@ -108,6 +110,21 @@ interface BookMasterApi {
         @Path("id") id: Long,
         @Header("Authorization") token: String
     ): Response<ClientDetailResponse>
+
+    /** Полный CRM-профиль клиента */
+    @GET("api/clients/{id}/profile")
+    suspend fun getClientProfile(
+        @Path("id") id: Long,
+        @Header("Authorization") token: String
+    ): Response<ClientProfileResponse>
+
+    /** Обновление данных клиента */
+    @PUT("api/clients/{id}")
+    suspend fun updateClient(
+        @Path("id") id: Long,
+        @Body body: Map<String, @JvmSuppressWildcards Any>,
+        @Header("Authorization") token: String
+    ): Response<Map<String, String>>
 
     @PUT("api/clients/{id}/notes")
     suspend fun updateClientNotes(
