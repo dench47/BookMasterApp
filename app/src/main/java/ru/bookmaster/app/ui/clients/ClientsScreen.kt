@@ -4,12 +4,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -19,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ru.bookmaster.app.data.model.Client
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClientsScreen(
     modifier: Modifier = Modifier,
@@ -28,6 +32,7 @@ fun ClientsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
+    var showFilterSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.loadClients()
@@ -35,43 +40,32 @@ fun ClientsScreen(
 
     Column(modifier = modifier.fillMaxSize()) {
 
-        // Поиск
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = {
-                searchQuery = it
-                viewModel.searchClients(it)
-            },
-            placeholder = { Text("Поиск по имени или телефону") },
-            leadingIcon = { Icon(Icons.Default.Search, null) },
+        // Поиск + иконка фильтра
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
                 .padding(top = 8.dp),
-            singleLine = true
-        )
-
-        // Кнопки сортировки
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            SortChip("Имя", uiState.sortBy == "name") {
-                viewModel.sortClients("name", if (uiState.sortDir == "asc") "desc" else "asc")
-            }
-            SortChip("Визиты", uiState.sortBy == "totalVisits") {
-                viewModel.sortClients("totalVisits", "desc")
-            }
-            SortChip("Сумма", uiState.sortBy == "totalSpent") {
-                viewModel.sortClients("totalSpent", "desc")
-            }
-            SortChip("Посл.визит", uiState.sortBy == "lastVisit") {
-                viewModel.sortClients("lastVisit", "desc")
-            }
-            SortChip("Давно не был", uiState.sortBy == "daysSinceLastVisit") {
-                viewModel.sortClients("daysSinceLastVisit", "desc")
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { value ->
+                    searchQuery = value
+                    viewModel.searchClients(value)
+                },
+                placeholder = { Text("Поиск по имени или телефону") },
+                leadingIcon = { Icon(Icons.Default.Search, null) },
+                modifier = Modifier.weight(1f),
+                singleLine = true
+            )
+            IconButton(onClick = { showFilterSheet = true }) {
+                Icon(
+                    Icons.Default.FilterList,
+                    contentDescription = "Фильтры и сортировка",
+                    tint = MaterialTheme.colorScheme.primary
+                )
             }
         }
 
@@ -133,10 +127,10 @@ fun ClientsScreen(
         } else {
             LazyColumn(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 items(uiState.clients) { client ->
-                    ClientCard(client, uiState.isPremium) { onNavigateToDetail(client.id) }
+                    ClientCard(client) { onNavigateToDetail(client.id) }
                 }
                 if (uiState.isPremium && uiState.hasMore) {
                     item {
@@ -149,97 +143,105 @@ fun ClientsScreen(
             }
         }
     }
-}
 
-@Composable
-fun SortChip(label: String, isSelected: Boolean, onClick: () -> Unit) {
-    TextButton(
-        onClick = onClick,
-        modifier = Modifier.background(
-            if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else Color.Transparent
-        )
-    ) {
-        Text(
-            label,
-            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-            fontSize = MaterialTheme.typography.bodySmall.fontSize
-        )
+    // Фильтр-модалка
+    if (showFilterSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showFilterSheet = false },
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 32.dp)
+            ) {
+                Text("Сортировка", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(12.dp))
+
+                val sorts = listOf(
+                    "name" to "По имени",
+                    "totalVisits" to "По визитам",
+                    "totalSpent" to "По сумме",
+                    "lastVisit" to "По дате визита",
+                    "daysSinceLastVisit" to "Давно не был"
+                )
+                sorts.forEach { (key, label) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = uiState.sortBy == key,
+                            onClick = {
+                                viewModel.sortClients(key, if (key == "name") "asc" else "desc")
+                                showFilterSheet = false
+                            }
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(label, style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+            }
+        }
     }
 }
 
 @Composable
-fun ClientCard(client: Client, isPremium: Boolean, onClick: () -> Unit) {
-    val statusColor = when (client.loyaltyStatus) {
+fun ClientCard(client: Client, onClick: () -> Unit) {
+    val initials = client.name
+        .split(" ")
+        .take(2)
+        .map { it.firstOrNull()?.uppercase() ?: "" }
+        .joinToString("")
+
+    val avatarBg = when (client.loyaltyStatus) {
         "vip" -> Color(0xFFFFD700)
+        "new" -> Color(0xFF4CAF50)
         "problematic" -> Color(0xFFFF4444)
         "sleeping" -> Color(0xFFAAAAAA)
-        "new" -> Color(0xFF4CAF50)
-        else -> Color.Transparent
-    }
-
-    val statusLabel = when (client.loyaltyStatus) {
-        "vip" -> "⭐ VIP"
-        "problematic" -> "⚠ Проблемный"
-        "sleeping" -> "💤 Спящий"
-        "new" -> "🆕 Новый"
-        else -> ""
+        else -> MaterialTheme.colorScheme.primary
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         onClick = onClick
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Аватар
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(avatarBg),
+                contentAlignment = Alignment.Center
             ) {
+                Text(
+                    text = initials,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+            }
+
+            // Имя
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     client.name,
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-                if (statusLabel.isNotEmpty()) {
-                    Text(
-                        statusLabel,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = statusColor,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(2.dp))
-            Text("📞 ${client.phone}", style = MaterialTheme.typography.bodySmall)
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text("📊 ${client.totalVisits} зап.", style = MaterialTheme.typography.bodySmall)
-                if (isPremium) {
-                    Text("💰 ${client.totalSpent.toInt()} ₽", style = MaterialTheme.typography.bodySmall)
-                    Text("❌ ${client.cancellationCount} отмен", style = MaterialTheme.typography.bodySmall)
-                }
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                client.lastVisit?.let {
-                    Text("📅 ${it.take(10).split("-").reversed().joinToString(".")}",
-                        style = MaterialTheme.typography.bodySmall)
-                }
-                if (client.daysSinceLastVisit < 999) {
-                    Text(
-                        "🚫 ${client.daysSinceLastVisit} дн. назад",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (client.daysSinceLastVisit > 30) Color(0xFFFF4444) else Color.Unspecified
-                    )
-                }
             }
         }
     }
