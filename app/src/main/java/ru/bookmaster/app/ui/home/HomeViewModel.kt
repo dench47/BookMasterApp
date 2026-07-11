@@ -27,6 +27,7 @@ data class HomeUiState(
     val error: String? = null,
     val todayDate: String = "",
     val todayAppointments: Int = 0,
+    val todayConfirmedAppointments: Int = 0,
     val todayRevenue: String = "0",
     val todayActualAppointments: Int = 0,
     val todayActualRevenue: String = "0",
@@ -171,6 +172,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     isLoading = false,
                     todayDate = todayData["dayOfWeek"] as? String ?: "",
                     todayAppointments = (todayData["totalAppointments"] as? Number)?.toInt() ?: 0,
+                    todayConfirmedAppointments = (todayData["confirmedAppointments"] as? Number)?.toInt() ?: 0,
                     todayRevenue = formatRevenue((todayData["totalRevenue"] as? Number)?.toDouble() ?: 0.0),
                     todayActualAppointments = (todayData["actualAppointments"] as? Number)?.toInt() ?: 0,
                     todayActualRevenue = formatRevenue((todayData["actualRevenue"] as? Number)?.toDouble() ?: 0.0),
@@ -267,7 +269,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val token = tokenManager.token.first() ?: ""
                 api.confirmAppointment(appointmentId, "Bearer $token")
-                loadEventsData()
+                loadAllData()
             } catch (e: Exception) { e.printStackTrace() }
         }
     }

@@ -296,16 +296,14 @@ fun HomeScreen(
             ) {
                 TodayCard(
                     date = uiState.todayDate,
-                    appointments = uiState.todayAppointments,
+                    confirmedAppointments = uiState.todayConfirmedAppointments,
                     revenue = uiState.todayRevenue,
                     actualAppointments = uiState.todayActualAppointments,
                     actualRevenue = uiState.todayActualRevenue,
                     showPlanned = uiState.showPlanned,
                     isRevenueVisible = uiState.isRevenueVisible,
                     onToggleMode = { viewModel.toggleRevenueMode() },
-                    onToggleVisibility = { viewModel.toggleRevenueVisibility() },
-                    onFreeSlotsClick = { },
-                    onScheduleClick = { onNavigateToAllAppointments() }
+                    onToggleVisibility = { viewModel.toggleRevenueVisibility() }
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -330,21 +328,17 @@ fun HomeScreen(
 @Composable
 fun TodayCard(
     date: String,
-    appointments: Int,
+    confirmedAppointments: Int,
     revenue: String,
     actualAppointments: Int,
     actualRevenue: String,
     showPlanned: Boolean,
     isRevenueVisible: Boolean,
     onToggleMode: () -> Unit,
-    onToggleVisibility: () -> Unit,
-    onFreeSlotsClick: () -> Unit,
-    onScheduleClick: () -> Unit
+    onToggleVisibility: () -> Unit
 ) {
-    val displayCount = if (showPlanned) appointments else actualAppointments
+    val displayCount = if (showPlanned) confirmedAppointments else actualAppointments
     val displayRevenue = if (showPlanned) revenue else actualRevenue
-    val modeLabel = if (showPlanned) "План" else "Факт"
-    val otherModeLabel = if (showPlanned) "Факт" else "План"
 
     Card(
         modifier = Modifier
@@ -381,7 +375,7 @@ fun TodayCard(
             ) {
                 Column {
                     Text(
-                        if (isRevenueVisible) "$displayCount" else "***",
+                        "$displayCount",
                         fontSize = 32.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -405,44 +399,20 @@ fun TodayCard(
                 horizontalArrangement = Arrangement.Center
             ) {
                 Text(
-                    "● $modeLabel",
-                    color = Color(0xFF38BDF8),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
+                    "● Факт",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = if (showPlanned) Color(0xFF94A3B8) else Color(0xFF38BDF8),
+                    modifier = if (showPlanned) Modifier.clickable(onClick = onToggleMode) else Modifier
                 )
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(16.dp))
                 Text(
-                    "○ $otherModeLabel",
-                    color = Color(0xFF94A3B8),
-                    fontSize = 12.sp,
-                    modifier = Modifier.clickable(onClick = onToggleMode)
+                    "● План",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = if (showPlanned) Color(0xFF38BDF8) else Color(0xFF94A3B8),
+                    modifier = if (!showPlanned) Modifier.clickable(onClick = onToggleMode) else Modifier
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    if (showPlanned) "(план)" else "(факт)",
-                    color = Color(0xFF64748B),
-                    fontSize = 11.sp
-                )
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedButton(
-                    onClick = onFreeSlotsClick,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("свободные окна")
-                }
-                OutlinedButton(
-                    onClick = onScheduleClick,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("расписание")
-                }
             }
         }
     }
