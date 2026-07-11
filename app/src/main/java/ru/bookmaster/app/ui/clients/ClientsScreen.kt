@@ -55,7 +55,7 @@ fun ClientsScreen(
                     searchQuery = value
                     viewModel.searchClients(value)
                 },
-                placeholder = { Text("Поиск по имени или телефону") },
+                placeholder = { Text("Имя или телефон", color = Color.White.copy(alpha = 0.5f)) },
                 leadingIcon = { Icon(Icons.Default.Search, null) },
                 modifier = Modifier.weight(1f),
                 singleLine = true

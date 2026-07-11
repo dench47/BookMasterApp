@@ -1,6 +1,5 @@
 package ru.bookmaster.app.ui.clients
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -76,6 +75,14 @@ private fun loyaltyIcon(status: String?): ImageVector = when (status) {
     else -> Icons.Default.CheckCircle
 }
 
+private fun loyaltyDescription(status: String?): String = when (status) {
+    "vip" -> "Клиент посетил салон 10 и более раз. Ценный постоянный клиент."
+    "problematic" -> "Клиент отменил более 30% записей. Рекомендуется подтверждать записи заранее или требовать предоплату."
+    "sleeping" -> "Клиент не был в салоне более 30 дней. Возможно, пора отправить акцию для возврата."
+    "new" -> "Новый клиент — менее 2 визитов за 30 дней. Важно произвести хорошее первое впечатление."
+    else -> "Обычный клиент."
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClientDetailScreen(
@@ -99,6 +106,39 @@ fun ClientDetailScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
+                    }
+                },
+                actions = {
+                    // Аватар в шапке
+                    val profile = uiState.profile
+                    if (profile != null) {
+                        val initials = profile.name
+                            .split(" ")
+                            .take(2)
+                            .map { it.firstOrNull()?.uppercase() ?: "" }
+                            .joinToString("")
+                        val avatarBg = when (profile.loyaltyStatus) {
+                            "vip" -> Color(0xFFFFD700)
+                            "new" -> Color(0xFF4CAF50)
+                            "problematic" -> Color(0xFFFF4444)
+                            "sleeping" -> Color(0xFFAAAAAA)
+                            else -> MaterialTheme.colorScheme.primary
+                        }
+                        Box(
+                            modifier = Modifier
+                                .padding(end = 12.dp)
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(avatarBg),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = initials,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -136,48 +176,11 @@ fun ClientDetailScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     // ============================================================
-                    // БЛОК 1: Базовая информация + аватар
+                    // БЛОК 1: Базовая информация
                     // ============================================================
                     SectionHeader("Базовая информация", Icons.Default.Person)
                     InfoCard {
-                        // Аватар и имя
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            // Аватар
-                            val initials = profile.name
-                                .split(" ")
-                                .take(2)
-                                .map { it.firstOrNull()?.uppercase() ?: "" }
-                                .joinToString("")
-                            val avatarBg = when (profile.loyaltyStatus) {
-                                "vip" -> Color(0xFFFFD700)
-                                "new" -> Color(0xFF4CAF50)
-                                "problematic" -> Color(0xFFFF4444)
-                                "sleeping" -> Color(0xFFAAAAAA)
-                                else -> MaterialTheme.colorScheme.primary
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .size(56.dp)
-                                    .clip(CircleShape)
-                                    .background(avatarBg),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = initials,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 22.sp
-                                )
-                            }
-                            Column {
-                                Text(profile.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                                Text(profile.phone, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                        Spacer(Modifier.height(8.dp))
+                        InfoRow("Телефон", profile.phone)
                         if (profile.email != null) InfoRow("Email", profile.email)
                         if (profile.birthday != null) InfoRow("Дата рождения", formatDate(profile.birthday))
                         if (profile.gender != null) InfoRow("Пол", genderLabel(profile.gender))
@@ -194,18 +197,16 @@ fun ClientDetailScreen(
                     InfoCard {
                         LoyaltyBadge(profile.loyaltyStatus)
                         Spacer(Modifier.height(8.dp))
-                        InfoRowIcon("Статус", loyaltyStatusLabel(profile.loyaltyStatus), loyaltyIcon(profile.loyaltyStatus))
                         InfoRow("Всего визитов", "${profile.totalVisits}")
                         InfoRow("За месяц", "${profile.visitsThisMonth}")
                         InfoRow("За год", "${profile.visitsThisYear}")
-                        if (profile.firstVisitDate != null) InfoRowIcon("Первый визит", formatDateTime(profile.firstVisitDate), Icons.Default.EventRepeat)
-                        if (profile.lastVisitDate != null) InfoRowIcon("Последний визит", formatDateTime(profile.lastVisitDate), Icons.Default.Today)
+                        if (profile.firstVisitDate != null) InfoRow("Первый визит", formatDate(profile.firstVisitDate))
+                        if (profile.lastVisitDate != null) InfoRow("Последний визит", formatDate(profile.lastVisitDate))
                         InfoRow("Дней с визита", if (profile.daysSinceLastVisit < 999) "${profile.daysSinceLastVisit}" else "—")
                         InfoRow("Отмен клиентом", "${profile.cancellationCount}")
                         InfoRow("Неявок", "${profile.noShowCount}")
                         InfoRow("Процент отмен", "%.0f%%".format(profile.cancellationRate * 100))
-                        InfoRowIcon("Push-уведомления", if (profile.pushEnabled) "Включены" else "Отключены",
-                            if (profile.pushEnabled) Icons.Default.NotificationsActive else Icons.Default.NotificationsOff)
+                        InfoRow("Push-уведомления", if (profile.pushEnabled) "Включены" else "Отключены")
                     }
 
                     // ============================================================
@@ -224,15 +225,15 @@ fun ClientDetailScreen(
                     // ============================================================
                     SectionHeader("Предпочтения", Icons.Default.Favorite)
                     InfoCard {
-                        if (profile.favoriteMasterName != null) InfoRowIcon("Любимый мастер", profile.favoriteMasterName, Icons.Default.PersonAdd)
-                        else InfoRowIcon("Любимый мастер", "—", Icons.Default.PersonAdd)
-                        if (profile.favoriteServiceName != null) InfoRowIcon("Любимая услуга", profile.favoriteServiceName, Icons.Default.Spa)
-                        else InfoRowIcon("Любимая услуга", "—", Icons.Default.Spa)
-                        InfoRowIcon("Предпочитает", timeOfDayLabel(profile.preferredTimeOfDay), timeOfDayIcon(profile.preferredTimeOfDay))
+                        if (profile.favoriteMasterName != null) InfoRow("Любимый мастер", profile.favoriteMasterName)
+                        else InfoRow("Любимый мастер", "—")
+                        if (profile.favoriteServiceName != null) InfoRow("Любимая услуга", profile.favoriteServiceName)
+                        else InfoRow("Любимая услуга", "—")
+                        InfoRow("Предпочитает", timeOfDayLabel(profile.preferredTimeOfDay))
                     }
 
                     // ============================================================
-                    // БЛОК 5: История записей (сворачиваемая)
+                    // БЛОК 5: История записей (мгновенное раскрытие)
                     // ============================================================
                     var historyExpanded by remember { mutableStateOf(false) }
                     val historyCount = profile.appointments?.size ?: 0
@@ -275,7 +276,7 @@ fun ClientDetailScreen(
                         }
                     }
 
-                    AnimatedVisibility(visible = historyExpanded) {
+                    if (historyExpanded) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (profile.appointments.isNullOrEmpty()) {
                                 InfoCard {
@@ -352,38 +353,9 @@ fun InfoRow(label: String, value: String) {
 }
 
 @Composable
-fun InfoRowIcon(label: String, value: String, icon: ImageVector) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 2.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Row(
-            modifier = Modifier.weight(0.4f),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.width(4.dp))
-            Text(
-                label,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Text(
-            value,
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.weight(0.6f),
-            textAlign = androidx.compose.ui.text.style.TextAlign.End
-        )
-    }
-}
-
-@Composable
 fun LoyaltyBadge(status: String?) {
+    var showInfo by remember { mutableStateOf(false) }
+
     val (bgColor, text, icon) = when (status) {
         "vip" -> Triple(Color(0xFFFFD700).copy(alpha = 0.2f), "VIP-клиент", Icons.Default.Star)
         "problematic" -> Triple(Color(0xFFFF4444).copy(alpha = 0.2f), "Проблемный", Icons.Default.Warning)
@@ -403,6 +375,29 @@ fun LoyaltyBadge(status: String?) {
             text,
             fontWeight = FontWeight.Bold,
             style = MaterialTheme.typography.bodyMedium
+        )
+        Spacer(Modifier.width(4.dp))
+        IconButton(
+            onClick = { showInfo = true },
+            modifier = Modifier.size(18.dp)
+        ) {
+            Icon(
+                Icons.Default.Info,
+                contentDescription = "Информация о статусе",
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+
+    if (showInfo) {
+        AlertDialog(
+            onDismissRequest = { showInfo = false },
+            title = { Text("Статус: $text") },
+            text = { Text(loyaltyDescription(status)) },
+            confirmButton = {
+                TextButton(onClick = { showInfo = false }) { Text("Понятно") }
+            }
         )
     }
 }
@@ -435,11 +430,7 @@ fun AppointmentHistoryCard(appointment: AppointmentResponse) {
                         color = MaterialTheme.colorScheme.primary)
                 }
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.width(4.dp))
-                Text(appointment.masterName ?: "—", style = MaterialTheme.typography.bodySmall)
-            }
+            Text("Мастер: ${appointment.masterName ?: "—"}", style = MaterialTheme.typography.bodySmall)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.CalendarToday, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.width(4.dp))
@@ -498,12 +489,4 @@ private fun sourceLabel(source: String?): String = when (source) {
     "search" -> "Поиск"
     "other" -> "Другое"
     else -> "—"
-}
-
-private fun loyaltyStatusLabel(status: String?): String = when (status) {
-    "vip" -> "VIP-клиент"
-    "problematic" -> "Проблемный"
-    "sleeping" -> "Спящий"
-    "new" -> "Новый"
-    else -> "Обычный"
 }
