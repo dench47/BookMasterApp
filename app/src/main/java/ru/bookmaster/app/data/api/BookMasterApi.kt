@@ -1,3 +1,4 @@
+
 package ru.bookmaster.app.data.api
 
 import okhttp3.ResponseBody
@@ -342,4 +343,48 @@ interface BookMasterApi {
         @Path("id") id: Long,
         @Header("Authorization") token: String
     ): Response<Unit>
+
+    // ========== Расходы ==========
+
+    @GET("api/expenses/company/{companyId}")
+    suspend fun getExpenses(
+        @Header("Authorization") token: String,
+        @Path("companyId") companyId: Long
+    ): Response<List<Map<String, Any>>>
+
+    @POST("api/expenses")
+    suspend fun addExpense(
+        @Header("Authorization") token: String,
+        @Body body: Map<String, @JvmSuppressWildcards Any>
+    ): Response<Map<String, String>>
+
+    @DELETE("api/expenses/{id}")
+    suspend fun deleteExpense(
+        @Header("Authorization") token: String,
+        @Path("id") id: Long
+    ): Response<Map<String, String>>
+
+    // ========== Финансы ==========
+
+    @GET("api/stats/{companyId}/top-services")
+    suspend fun getTopServices(
+        @Path("companyId") companyId: Long,
+        @Query("limit") limit: Int,
+        @Header("Authorization") token: String
+    ): Response<Map<String, Any>>
+
+    @GET("api/stats/{companyId}/top-masters")
+    suspend fun getTopMasters(
+        @Path("companyId") companyId: Long,
+        @Query("limit") limit: Int,
+        @Header("Authorization") token: String
+    ): Response<Map<String, Any>>
+
+    @GET("api/stats/{companyId}/revenue")
+    suspend fun getRevenueByDay(
+        @Path("companyId") companyId: Long,
+        @Query("from") from: String,
+        @Query("to") to: String,
+        @Header("Authorization") token: String
+    ): Response<Map<String, Any>>
 }

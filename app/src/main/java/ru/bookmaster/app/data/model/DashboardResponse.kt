@@ -17,5 +17,7 @@ data class DashboardResponse(
     val activeMasters: Int = 0,
     val pendingAppointments: List<AppointmentResponse>? = null,
     val cancelledAppointments: List<AppointmentResponse>? = null,
-    val masters: List<Map<String, Any>>? = null
+    val masters: List<Map<String, Any>>? = null,
+    val todayNetProfit: Number? = null,
+    val monthNetProfit: Number? = null
 )

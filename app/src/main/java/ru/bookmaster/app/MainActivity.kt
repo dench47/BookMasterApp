@@ -26,6 +26,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.toColorInt
 import androidx.core.view.WindowInsetsControllerCompat
@@ -43,6 +44,8 @@ import ru.bookmaster.app.ui.cabinet.CabinetScreen
 import ru.bookmaster.app.ui.cabinet.CabinetViewModel
 import ru.bookmaster.app.ui.clients.ClientDetailScreen
 import ru.bookmaster.app.ui.clients.ClientsScreen
+import ru.bookmaster.app.ui.expenses.ExpensesScreen
+import ru.bookmaster.app.ui.finances.FinancesScreen
 import ru.bookmaster.app.ui.home.AppointmentsScreen
 import ru.bookmaster.app.ui.home.DayAppointmentsScreen
 import ru.bookmaster.app.ui.home.HomeScreen
@@ -172,6 +175,8 @@ class MainActivity : ComponentActivity() {
                             },
                             onNavigateToPremium = { navController.navigate("premium") },
                             onNavigateToSettings = { navController.navigate("settings") },
+                            onNavigateToExpenses = { navController.navigate("expenses") },
+                            onNavigateToFinances = { navController.navigate("finances") },
                             onNavigateToDayAppointments = { date ->
                                 navController.navigate("day_appointments/$date")
                             },
@@ -249,6 +254,26 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     }
+
+                    composable("finances") {
+                        val companyId = runBlocking {
+                            TokenManager(this@MainActivity).companyId.first()
+                        } ?: 0L
+                        FinancesScreen(
+                            companyId = companyId,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable("expenses") {
+                        val companyId = runBlocking {
+                            TokenManager(this@MainActivity).companyId.first()
+                        } ?: 0L
+                        ExpensesScreen(
+                            companyId = companyId,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
                 }
             }
         }
@@ -272,6 +297,8 @@ fun MainScreen(
     onNavigateToSettings: () -> Unit = {},
     onNavigateToDayAppointments: (String) -> Unit = {},
     onNavigateToAllAppointments: () -> Unit = {},
+    onNavigateToExpenses: () -> Unit = {},
+    onNavigateToFinances: () -> Unit = {},
     cabinetViewModel: CabinetViewModel,
     homeViewModel: HomeViewModel = viewModel()
 ) {
@@ -307,6 +334,8 @@ fun MainScreen(
                 onNavigateToSettings = onNavigateToSettings,
                 onNavigateToDayAppointments = onNavigateToDayAppointments,
                 onNavigateToAllAppointments = onNavigateToAllAppointments,
+                onNavigateToExpenses = onNavigateToExpenses,
+                onNavigateToFinances = onNavigateToFinances,
                 viewModel = homeViewModel
             )
             1 -> ClientsScreen(
