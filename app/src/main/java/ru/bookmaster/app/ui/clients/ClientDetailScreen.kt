@@ -181,7 +181,7 @@ fun ClientDetailScreen(
                     SectionHeader("Базовая информация", Icons.Default.Person)
                     InfoCard {
                         InfoRow("Телефон", profile.phone)
-                        if (profile.email != null) InfoRow("Email", profile.email)
+                        InfoRow("Email", profile.email ?: "—")
                         if (profile.birthday != null) InfoRow("Дата рождения", formatDate(profile.birthday))
                         if (profile.gender != null) InfoRow("Пол", genderLabel(profile.gender))
                         if (profile.source != null) InfoRow("Источник", sourceLabel(profile.source))
@@ -235,60 +235,77 @@ fun ClientDetailScreen(
                     // ============================================================
                     // БЛОК 5: История записей (мгновенное раскрытие)
                     // ============================================================
-                    var historyExpanded by remember { mutableStateOf(false) }
-                    val historyCount = profile.appointments?.size ?: 0
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { historyExpanded = !historyExpanded }
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Default.History,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                "История записей",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                "$historyCount",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Icon(
-                                if (historyExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                contentDescription = if (historyExpanded) "Свернуть" else "Развернуть",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
+                var historyExpanded by remember { mutableStateOf(false) }
+                var historyShowLimit by remember { mutableStateOf(20) }
+                val allHistory = profile.appointments ?: emptyList()
+                val historyCount = allHistory.size
+                val visibleHistory = allHistory.take(historyShowLimit)
+                val hasMoreHistory = historyShowLimit < historyCount
 
-                    if (historyExpanded) {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (profile.appointments.isNullOrEmpty()) {
-                                InfoCard {
-                                    Text("Нет записей", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                            } else {
-                                profile.appointments!!.forEach { appointment ->
-                                    AppointmentHistoryCard(appointment)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { historyExpanded = !historyExpanded }
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.History,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "История записей",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "$historyCount",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Icon(
+                            if (historyExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = if (historyExpanded) "Свернуть" else "Развернуть",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                if (historyExpanded) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (allHistory.isEmpty()) {
+                            InfoCard {
+                                Text("Нет записей", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        } else {
+                            visibleHistory.forEach { appointment ->
+                                AppointmentHistoryCard(appointment)
+                            }
+                            if (hasMoreHistory) {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    TextButton(onClick = {
+                                        historyShowLimit += 20
+                                    }) {
+                                        Text("Показано $historyShowLimit из $historyCount ▸ Загрузить ещё")
+                                    }
                                 }
                             }
                         }
                     }
+                }
 
                     Spacer(Modifier.height(32.dp))
                 }
