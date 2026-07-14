@@ -40,8 +40,10 @@ data class HomeUiState(
     val serverErrorMessage: String? = null,
     val pendingAppointments: List<AppointmentResponse> = emptyList(),
     val cancelledAppointments: List<AppointmentResponse> = emptyList(),
+    val waitingListEntries: List<Map<String, Any>> = emptyList(),
     val newEventsCount: Int = 0,
     val cancelledByClientCount: Int = 0,
+    val waitingListCount: Int = 0,
     val totalEventsCount: Int = 0,
     val isPendingSheetVisible: Boolean = false,
     val masters: List<Master> = emptyList(),
@@ -137,8 +139,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
                 val pendingList = dashboard.pendingAppointments ?: emptyList()
                 val cancelledList = dashboard.cancelledAppointments ?: emptyList()
+                val waitingList = dashboard.waitingListEntries ?: emptyList()
                 val cancelledCount = appPrefs.getInt(BookMasterMessagingService.KEY_CANCELLED_COUNT, 0)
-                val newEventsCount = pendingList.size
+                val waitingListCount = waitingList.size
+                val newEventsCount = pendingList.size + waitingListCount
 
                 // Мастеров преобразуем в модель Master
                 val mastersList = dashboard.masters?.mapNotNull { masterMap ->
@@ -171,8 +175,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     isMaster = companyType == "master",
                     pendingAppointments = pendingList,
                     cancelledAppointments = cancelledList,
+                    waitingListEntries = waitingList,
                     newEventsCount = newEventsCount,
                     cancelledByClientCount = cancelledCount,
+                    waitingListCount = waitingListCount,
                     totalEventsCount = newEventsCount + cancelledCount,
                     isPendingSheetVisible = _uiState.value.isPendingSheetVisible,
                     masters = mastersList,
@@ -342,6 +348,28 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     cancelledAppointments = updatedCancelled,
                     cancelledByClientCount = updatedCancelled.size,
                     totalEventsCount = _uiState.value.newEventsCount + updatedCancelled.size
+                )
+            } catch (e: Exception) { e.printStackTrace() }
+        }
+    }
+
+    fun dismissWaitingListEntry(entryId: Long) {
+        viewModelScope.launch {
+            try {
+                val token = tokenManager.token.first() ?: ""
+                api.markWaitingListViewed(entryId, "Bearer $token")
+
+                val updatedWaiting = _uiState.value.waitingListEntries.filter {
+                    (it["id"] as? Number)?.toLong() != entryId
+                }
+                val waitingCount = updatedWaiting.size
+                val newEventsCount = _uiState.value.pendingAppointments.size + waitingCount
+
+                _uiState.value = _uiState.value.copy(
+                    waitingListEntries = updatedWaiting,
+                    waitingListCount = waitingCount,
+                    newEventsCount = newEventsCount,
+                    totalEventsCount = newEventsCount + _uiState.value.cancelledByClientCount
                 )
             } catch (e: Exception) { e.printStackTrace() }
         }

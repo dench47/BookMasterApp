@@ -45,6 +45,10 @@ class BookMasterMessagingService : FirebaseMessagingService() {
                 val currentCount = prefs.getInt(KEY_CANCELLED_COUNT, 0)
                 prefs.edit { putInt(KEY_CANCELLED_COUNT, currentCount + 1) }
             }
+            "WAITING_LIST_ENTRY" -> {
+                val currentCount = prefs.getInt(KEY_NEW_EVENTS_COUNT, 0)
+                prefs.edit { putInt(KEY_NEW_EVENTS_COUNT, currentCount + 1) }
+            }
             else -> {
                 val currentCount = prefs.getInt(KEY_NEW_EVENTS_COUNT, 0)
                 prefs.edit { putInt(KEY_NEW_EVENTS_COUNT, currentCount + 1) }

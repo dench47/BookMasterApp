@@ -387,4 +387,12 @@ interface BookMasterApi {
         @Query("to") to: String,
         @Header("Authorization") token: String
     ): Response<Map<String, Any>>
+
+    // ========== Лист ожидания ==========
+
+    @PUT("api/waiting-list/{id}/mark-viewed")
+    suspend fun markWaitingListViewed(
+        @Path("id") id: Long,
+        @Header("Authorization") token: String
+    ): Response<Unit>
 }

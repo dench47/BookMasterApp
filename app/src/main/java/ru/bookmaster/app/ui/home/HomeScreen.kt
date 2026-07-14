@@ -97,9 +97,11 @@ fun HomeScreen(
             PendingAppointmentsSheetContent(
                 pendingAppointments = uiState.pendingAppointments.filter { it.confirmed != true && it.cancelled != true },
                 cancelledAppointments = uiState.cancelledAppointments,
+                waitingListEntries = uiState.waitingListEntries,
                 onConfirm = { viewModel.confirmAppointment(it) },
                 onCancel = { viewModel.cancelAppointment(it) },
-                onDismissCancelled = { viewModel.dismissCancelledAppointment(it) }
+                onDismissCancelled = { viewModel.dismissCancelledAppointment(it) },
+                onDismissWaitingList = { viewModel.dismissWaitingListEntry(it) }
             )
         }
     }
@@ -307,6 +309,11 @@ fun HomeScreen(
     }
 }
 
+private fun formatDateShort(dateStr: String): String {
+    val parts = dateStr.take(10).split("-")
+    return if (parts.size == 3) "${parts[2]}.${parts[1]}.${parts[0]}" else dateStr
+}
+
 @Composable
 fun TodayCard(
     date: String,
@@ -447,10 +454,14 @@ fun PendingAppointmentsCard(
 fun PendingAppointmentsSheetContent(
     pendingAppointments: List<AppointmentResponse>,
     cancelledAppointments: List<AppointmentResponse>,
+    waitingListEntries: List<Map<String, Any>> = emptyList(),
     onConfirm: (Long) -> Unit,
     onCancel: (Long) -> Unit,
-    onDismissCancelled: (Long) -> Unit
+    onDismissCancelled: (Long) -> Unit,
+    onDismissWaitingList: (Long) -> Unit = {}
 ) {
+    val totalEvents = pendingAppointments.size + cancelledAppointments.size + waitingListEntries.size
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -464,7 +475,7 @@ fun PendingAppointmentsSheetContent(
         ) {
             Text("События", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
             Spacer(modifier = Modifier.height(4.dp))
-            Text("${pendingAppointments.size + cancelledAppointments.size} событий", color = Color(0xFF94A3B8), fontSize = 14.sp)
+            Text("$totalEvents событий", color = Color(0xFF94A3B8), fontSize = 14.sp)
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -475,11 +486,12 @@ fun PendingAppointmentsSheetContent(
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
         ) {
-            if (pendingAppointments.isEmpty() && cancelledAppointments.isEmpty()) {
+            if (pendingAppointments.isEmpty() && cancelledAppointments.isEmpty() && waitingListEntries.isEmpty()) {
                 Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
                     Text("Нет новых событий", color = Color(0xFF94A3B8))
                 }
             } else {
+                // Новые записи (ожидают подтверждения)
                 pendingAppointments.forEach { appointment ->
                     PendingAppointmentItem(
                         appointment = appointment,
@@ -489,6 +501,19 @@ fun PendingAppointmentsSheetContent(
                     Spacer(modifier = Modifier.height(8.dp))
                 }
 
+                // Лист ожидания
+                waitingListEntries.forEach { entry ->
+                    val entryId = (entry["id"] as? Number)?.toLong() ?: 0L
+                    key(entryId) {
+                        WaitingListEntryItem(
+                            entry = entry,
+                            onDismissed = { onDismissWaitingList(entryId) }
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                // Отмены клиентов
                 cancelledAppointments.forEach { appointment ->
                     key(appointment.id) {
                         CancelledAppointmentItem(
@@ -499,6 +524,77 @@ fun PendingAppointmentsSheetContent(
                     Spacer(modifier = Modifier.height(8.dp))
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun WaitingListEntryItem(
+    entry: Map<String, Any>,
+    onDismissed: () -> Unit
+) {
+    val dismissState = rememberSwipeToDismissBoxState()
+    val scope = rememberCoroutineScope()
+
+    val clientName = entry["clientName"] as? String ?: "—"
+    val serviceName = entry["serviceName"] as? String ?: "—"
+    val masterName = entry["masterName"] as? String ?: "—"
+    val dateFrom = entry["preferredDateFrom"] as? String ?: ""
+    val dateTo = entry["preferredDateTo"] as? String ?: ""
+
+    SwipeToDismissBox(
+        state = dismissState,
+        backgroundContent = {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFF334155)),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Icon(
+                    Icons.Default.Check,
+                    contentDescription = "Скрыть",
+                    tint = Color(0xFF94A3B8),
+                    modifier = Modifier.padding(end = 20.dp)
+                )
+            }
+        },
+        enableDismissFromStartToEnd = false,
+        enableDismissFromEndToStart = true
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B).copy(alpha = 0.7f))
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.HourglassEmpty, tint = Color(0xFFFCD34D), contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("📋 $clientName ждёт свободное время", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text("$serviceName • $masterName", color = Color(0xFF94A3B8), fontSize = 13.sp)
+                    if (dateFrom.isNotBlank()) {
+                        val displayDate = if (dateTo.isNotBlank() && dateTo != dateFrom)
+                            "${formatDateShort(dateFrom)} – ${formatDateShort(dateTo)}"
+                        else
+                            "с ${formatDateShort(dateFrom)}"
+                        Text(displayDate, color = Color(0xFF94A3B8), fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+    }
+
+    // Отслеживаем завершение свайпа
+    LaunchedEffect(dismissState.currentValue) {
+        if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
+            onDismissed()
+            scope.launch { dismissState.snapTo(SwipeToDismissBoxValue.Settled) }
         }
     }
 }
