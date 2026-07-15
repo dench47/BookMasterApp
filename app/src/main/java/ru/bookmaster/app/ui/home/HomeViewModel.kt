@@ -234,14 +234,19 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
                 val pendingList = dashboard?.pendingAppointments ?: _uiState.value.pendingAppointments
                 val cancelledList = dashboard?.cancelledAppointments ?: _uiState.value.cancelledAppointments
+                val waitingList = dashboard?.waitingListEntries ?: _uiState.value.waitingListEntries
                 val cancelledCount = appPrefs.getInt(BookMasterMessagingService.KEY_CANCELLED_COUNT, 0)
+                val waitingCount = waitingList.size
+                val newEventsCount = pendingList.size + waitingCount
 
                 _uiState.value = _uiState.value.copy(
                     pendingAppointments = pendingList,
                     cancelledAppointments = cancelledList,
-                    newEventsCount = pendingList.size,
+                    waitingListEntries = waitingList,
+                    newEventsCount = newEventsCount,
                     cancelledByClientCount = cancelledCount,
-                    totalEventsCount = pendingList.size + cancelledCount
+                    waitingListCount = waitingCount,
+                    totalEventsCount = newEventsCount + cancelledCount
                 )
             } catch (_: Exception) { }
         }
